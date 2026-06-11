@@ -2,6 +2,7 @@
 RAG Platform - Main Streamlit Application
 Production-grade modular RAG with offline/online support.
 """
+
 import os
 import sys
 import tempfile
@@ -14,9 +15,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # Load .env
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except ImportError:
     pass
+
 
 # ── Session state initialisation (must be first Streamlit call) ──────────────
 def _init_session_state():
@@ -40,10 +43,12 @@ def _init_session_state():
         if k not in st.session_state:
             st.session_state[k] = v
 
+
 _init_session_state()
 
 # ── Logging setup ─────────────────────────────────────────────────────────────
 from utils.logger import setup_logging
+
 setup_logging(st.session_state["log_lines"])
 logger = logging.getLogger("rag_platform")
 
@@ -107,10 +112,29 @@ def get_or_create_llm(settings: dict) -> LLMManager:
         or st.session_state["last_model"] != model_key
     ):
         llm = LLMManager()
-        if settings["is_online"]:
-            ok = llm.load_online(settings["selected_model"], settings["hf_token"])
+        provider = settings.get("provider", "offline")
+
+        if provider == "ollama":
+
+            ok = llm.load_ollama(
+                model_name=settings["ollama_model"],
+                host=settings["ollama_host"],
+            )
+
+        elif provider == "online":
+
+            ok = llm.load_online(
+                settings["selected_model"],
+                settings["hf_token"],
+            )
+
         else:
-            model_path = os.path.join("models", settings["selected_model"])
+
+            model_path = os.path.join(
+                "models",
+                settings["selected_model"],
+            )
+
             ok = llm.load_offline(model_path)
 
         if ok:
@@ -128,7 +152,9 @@ def get_or_create_llm(settings: dict) -> LLMManager:
 def save_uploaded_file(uploaded_file) -> str:
     """Save Streamlit uploaded file to temp directory, return path."""
     suffix = os.path.splitext(uploaded_file.name)[1]
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix, prefix=uploaded_file.name + "_") as tmp:
+    with tempfile.NamedTemporaryFile(
+        delete=False, suffix=suffix, prefix=uploaded_file.name + "_"
+    ) as tmp:
         tmp.write(uploaded_file.read())
         return tmp.name
 
@@ -206,20 +232,30 @@ def main():
                     with st.spinner(f"Embedding {len(all_chunks)} chunks..."):
                         vs.add_chunks(all_chunks)
                         vs.save()
-                    st.success(f"✅ Ingested {len(all_chunks)} chunks from {len(uploaded_files)} file(s).")
-                    st.session_state["rag_chain"] = None  # Reset chain to use updated VS
+                    st.success(
+                        f"✅ Ingested {len(all_chunks)} chunks from {len(uploaded_files)} file(s)."
+                    )
+                    st.session_state["rag_chain"] = (
+                        None  # Reset chain to use updated VS
+                    )
                     st.rerun()
                 else:
-                    st.warning("No chunks extracted. Check file format and plugin support.")
+                    st.warning(
+                        "No chunks extracted. Check file format and plugin support."
+                    )
 
     # ── Load LLM Button ───────────────────────────────────────────────────────
     if not st.session_state["llm_ready"]:
         if settings["is_online"] and not settings["hf_token"]:
-            st.warning("⚠️ Enter your HuggingFace token in the sidebar to use online mode.")
+            st.warning(
+                "⚠️ Enter your HuggingFace token in the sidebar to use online mode."
+            )
         elif not settings["selected_model"]:
             st.error("❌ No model selected. Add a local model to the `models/` folder.")
         else:
-            if st.button(f"🚀 Load Model: {settings['selected_model']}", key="load_model_btn"):
+            if st.button(
+                f"🚀 Load Model: {settings['selected_model']}", key="load_model_btn"
+            ):
                 with st.spinner("Loading model... (this may take a moment)"):
                     llm = get_or_create_llm(settings)
                 if st.session_state["llm_ready"]:
@@ -247,7 +283,9 @@ def _render_chat_mode(settings: dict, vs: VectorStore, llm):
     st.markdown("## 💬 Technical Assistant")
 
     if not vs.is_ready:
-        st.info("📂 Please ingest documents above to enable retrieval-augmented answers.")
+        st.info(
+            "📂 Please ingest documents above to enable retrieval-augmented answers."
+        )
 
     # Render history
     render_chat_history(st.session_state["messages"])
@@ -270,10 +308,14 @@ def _render_chat_mode(settings: dict, vs: VectorStore, llm):
     # Load prompt
     system_prompt = ""
     if settings.get("selected_prompt"):
-        system_prompt = load_prompt_file(os.path.join("prompts", settings["selected_prompt"]))
+        system_prompt = load_prompt_file(
+            os.path.join("prompts", settings["selected_prompt"])
+        )
 
     # Build or reuse RAG chain
-    if st.session_state["rag_chain"] is None or True:  # Always rebuild with current settings
+    if (
+        st.session_state["rag_chain"] is None or True
+    ):  # Always rebuild with current settings
         retriever = Retriever(vs, top_k=settings["top_k"])
         st.session_state["rag_chain"] = RAGChain(
             retriever=retriever,
@@ -325,11 +367,13 @@ def _render_chat_mode(settings: dict, vs: VectorStore, llm):
         }
         for c in source_chunks
     ]
-    st.session_state["messages"].append({
-        "role": "assistant",
-        "content": full_response,
-        "sources": src_meta,
-    })
+    st.session_state["messages"].append(
+        {
+            "role": "assistant",
+            "content": full_response,
+            "sources": src_meta,
+        }
+    )
 
 
 # ── Doc Generation Mode ───────────────────────────────────────────────────────
@@ -356,7 +400,9 @@ def _render_doc_gen_mode(settings: dict, vs: VectorStore, llm):
 
         custom_prompt = ""
         if settings.get("selected_prompt"):
-            custom_prompt = load_prompt_file(os.path.join("prompts", settings["selected_prompt"]))
+            custom_prompt = load_prompt_file(
+                os.path.join("prompts", settings["selected_prompt"])
+            )
 
         retriever = Retriever(vs, top_k=settings["top_k"])
         gen = DocGenerator(retriever=retriever, llm_manager=llm)
@@ -392,24 +438,34 @@ def _render_doc_gen_mode(settings: dict, vs: VectorStore, llm):
             os.makedirs("exports", exist_ok=True)
             if export_to_html(doc, out):
                 with open(out, "rb") as f:
-                    st.download_button("⬇️ Download HTML", f, "documentation.html", "text/html")
+                    st.download_button(
+                        "⬇️ Download HTML", f, "documentation.html", "text/html"
+                    )
 
         if col2.button("📝 Export DOCX", key="exp_docx"):
             out = "exports/generated_doc.docx"
             os.makedirs("exports", exist_ok=True)
             if export_to_docx(doc, out):
                 with open(out, "rb") as f:
-                    st.download_button("⬇️ Download DOCX", f, "documentation.docx",
-                                       "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                    st.download_button(
+                        "⬇️ Download DOCX",
+                        f,
+                        "documentation.docx",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    )
 
         if col3.button("📋 Export PDF", key="exp_pdf"):
             out = "exports/generated_doc.pdf"
             os.makedirs("exports", exist_ok=True)
             if export_to_pdf(doc, out):
                 with open(out, "rb") as f:
-                    st.download_button("⬇️ Download PDF", f, "documentation.pdf", "application/pdf")
+                    st.download_button(
+                        "⬇️ Download PDF", f, "documentation.pdf", "application/pdf"
+                    )
             else:
-                st.warning("PDF export requires weasyprint or reportlab. Install one to enable PDF export.")
+                st.warning(
+                    "PDF export requires weasyprint or reportlab. Install one to enable PDF export."
+                )
 
 
 if __name__ == "__main__":
