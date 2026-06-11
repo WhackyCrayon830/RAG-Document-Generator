@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Environment
+.env
+venv/
+env/
+.venv/
+
+# Models (too large for git)
+models/*/
+!models/README.md
+
+# Vector DB (generated)
+vector_db/*.index
+vector_db/*.pkl
+
+# Uploads and exports (user data)
+uploads/*
+exports/*
+!uploads/.gitkeep
+!exports/.gitkeep
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/secrets.toml

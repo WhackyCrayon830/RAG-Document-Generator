@@ -1,0 +1,17 @@
+{
+  "app": {
+    "title": "RAG Platform",
+    "version": "1.0.0",
+    "default_chunk_size": 512,
+    "default_chunk_overlap": 64,
+    "default_top_k": 5,
+    "max_chat_history": 20
+  },
+  "faiss": {
+    "index_path": "vector_db/faiss.index",
+    "metadata_path": "vector_db/metadata.pkl"
+  },
+  "uploads": {
+    "temp_dir": "uploads"
+  }
+}
