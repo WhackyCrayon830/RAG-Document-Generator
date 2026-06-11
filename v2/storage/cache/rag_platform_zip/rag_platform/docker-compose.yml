@@ -1,0 +1,16 @@
+version: "3.9"
+
+services:
+  rag_platform:
+    build: .
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./models:/app/models
+      - ./vector_db:/app/vector_db
+      - ./uploads:/app/uploads
+      - ./exports:/app/exports
+      - ./.env:/app/.env
+    environment:
+      - HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN:-}
+    restart: unless-stopped
