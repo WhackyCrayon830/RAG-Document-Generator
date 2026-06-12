@@ -10,6 +10,24 @@
       "parsed_path": "storage\\projects\\3f5c7b0c-3251-4cd1-b5c1-a11670325f93\\parsed\\717a9b8e-bb98-494a-9394-e5c997c5ef3b.json",
       "chunks": 25,
       "version": 1
+    },
+    {
+      "id": "7975829a-5fa3-4397-9230-9ab258a2a5ad",
+      "filename": "Part-I,Vol-I.docx",
+      "sha256": "12787108f4e6914ea4974cfea1247c6eab82d18fad805437dcdfa1fedd990d0b",
+      "path": "storage\\projects\\3f5c7b0c-3251-4cd1-b5c1-a11670325f93\\raw\\7975829a-5fa3-4397-9230-9ab258a2a5ad.docx",
+      "parsed_path": "storage\\projects\\3f5c7b0c-3251-4cd1-b5c1-a11670325f93\\parsed\\7975829a-5fa3-4397-9230-9ab258a2a5ad.json",
+      "chunks": 53,
+      "version": 1
+    },
+    {
+      "id": "50990237-3d96-4ea2-ad69-bfd49999924f",
+      "filename": "Fault Diagnosis.docx",
+      "sha256": "fe308be79fa72cce9cb60ea1143231ebc4c92593d9d5a5b713796020106aa53c",
+      "path": "storage\\projects\\3f5c7b0c-3251-4cd1-b5c1-a11670325f93\\raw\\50990237-3d96-4ea2-ad69-bfd49999924f.docx",
+      "parsed_path": "storage\\projects\\3f5c7b0c-3251-4cd1-b5c1-a11670325f93\\parsed\\50990237-3d96-4ea2-ad69-bfd49999924f.json",
+      "chunks": 2,
+      "version": 1
     }
   ],
   "templates": []

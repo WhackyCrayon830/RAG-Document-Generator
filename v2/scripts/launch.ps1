@@ -613,7 +613,7 @@ try {
     Start-ServiceIfNeeded `
         -Name "Streamlit frontend" `
         -Port $configData.frontend_port `
-        -Command @($conda, "run", "-n", $configData.conda_env_name, "python", "-m", "streamlit", "run", "frontend/streamlit_app/app.py", "--server.port", "$($configData.frontend_port)") `
+        -Command @($conda, "run", "-n", $configData.conda_env_name, "python", "-m", "streamlit", "run", "frontend/streamlit_app/app.py", "--server.port", "$($configData.frontend_port)", "--logger.level=error", "--browser.gatherUsageStats=false") `
         -LogPath $frontendLog `
         -EnvVars $frontendEnv
 

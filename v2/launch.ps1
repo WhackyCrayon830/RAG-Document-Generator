@@ -1,3 +1,4 @@
+
 param(
     [switch]$Config,
     [switch]$ConfigOnly,
@@ -62,6 +63,36 @@ if ($startCelery) {
     Write-Host "Starting background task worker..." -ForegroundColor Cyan
     $celeryProcess = Start-Process -PassThru -WindowStyle Hidden -FilePath "powershell" `
         -ArgumentList "-NoExit -Command `"cd '$PSScriptRoot' && celery -A workers.celery_app worker --loglevel=warning --concurrency=2`""
+}
+
+$streamlitDir = Join-Path $env:USERPROFILE ".streamlit"
+$configFile = Join-Path $streamlitDir "config.toml"
+
+if (-not (Test-Path $streamlitDir)) {
+    New-Item -ItemType Directory -Path $streamlitDir | Out-Null
+}
+
+if (-not (Test-Path $configFile)) {
+@"
+[logger]
+level = "error"
+
+[client]
+showErrorDetails = false
+toolbarMode = "minimal"
+
+[global]
+dataFrameSerialization = "arrow"
+
+[browser]
+gatherUsageStats = false
+serverAddress = "localhost"
+
+[server]
+headless = true
+runOnSave = true
+port = 8501
+"@ | Set-Content $configFile
 }
 
 # Execute the actual launcher with direct parameter passing

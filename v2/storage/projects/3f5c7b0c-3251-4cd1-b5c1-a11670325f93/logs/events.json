@@ -14,5 +14,21 @@
     "metadata": {
       "chunks": 25
     }
+  },
+  {
+    "time": "2026-06-12T10:55:32.534729+00:00",
+    "type": "ingestion.completed",
+    "message": "Ingested Part-I,Vol-I.docx",
+    "metadata": {
+      "chunks": 53
+    }
+  },
+  {
+    "time": "2026-06-12T11:09:45.903217+00:00",
+    "type": "ingestion.completed",
+    "message": "Ingested Fault Diagnosis.docx",
+    "metadata": {
+      "chunks": 2
+    }
   }
 ]
