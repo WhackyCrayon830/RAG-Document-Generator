@@ -1,0 +1,58 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Environments
+.env
+.env.*
+venv/
+ENV/
+env/
+.venv/
+
+# Pytest / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Jupyter
+.ipynb_checkpoints
+
+# IDEs / editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Docker
+docker-compose.override.yml
+**/docker-compose.override.yml
+
+# Storage / generated data
+storage/
+
+# Local config / secrets
+*.env
+
+# Logs
+*.log
+
+# Ignore per-subproject env.example if intentionally tracked
+# keep env.example if needed, but ignore local env overrides
+
+# Preserve v2-specific ignore if present in subfolder
+# Root-only entries for RAG-Document-Generator

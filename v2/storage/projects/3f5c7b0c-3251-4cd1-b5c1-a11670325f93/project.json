@@ -30,5 +30,139 @@
       "version": 1
     }
   ],
-  "templates": []
+  "templates": [
+    {
+      "id": "ea237bbc-e0c7-4ab9-9ba4-88636ca40b30",
+      "filename": "example03.docx",
+      "path": "storage\\projects\\3f5c7b0c-3251-4cd1-b5c1-a11670325f93\\templates\\ea237bbc-e0c7-4ab9-9ba4-88636ca40b30.docx",
+      "profile": {
+        "styles": [
+          {
+            "name": "Normal",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Heading 1",
+            "font": null,
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Heading 2",
+            "font": null,
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Heading 3",
+            "font": null,
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Default Paragraph Font",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Normal Table",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "No List",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Strong",
+            "font": null,
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Table Grid",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Style Heading 2 + Not Italic Before:  0 pt After:  0 pt Line spa...",
+            "font": null,
+            "bold": null,
+            "italic": true
+          },
+          {
+            "name": "Style Heading 2 + Not Italic",
+            "font": null,
+            "bold": null,
+            "italic": true
+          },
+          {
+            "name": "Header",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Header Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Footer",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Footer Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          }
+        ],
+        "placeholders": [],
+        "sections": [
+          {
+            "page_width": 12240,
+            "page_height": 15840,
+            "top_margin": 1440,
+            "bottom_margin": 1440,
+            "left_margin": 1134,
+            "right_margin": 1325,
+            "header": "",
+            "footer": ""
+          }
+        ],
+        "heading_levels": [
+          {
+            "style": "Heading 1",
+            "level": "1"
+          },
+          {
+            "style": "Heading 2",
+            "level": "2"
+          },
+          {
+            "style": "Heading 3",
+            "level": "3"
+          }
+        ],
+        "numbering_styles": [
+          "No List"
+        ],
+        "table_styles": [
+          "Normal Table",
+          "Table Grid"
+        ]
+      }
+    }
+  ]
 }
