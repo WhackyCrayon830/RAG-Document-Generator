@@ -36,13 +36,10 @@ def init_state() -> None:
         "last_result": None,
         "last_task_id": None,
         "workflow_steps": {
-            "Clarification": "Waiting",
-            "Planner": "Waiting",
-            "Retriever": "Waiting",
-            "Writer": "Waiting",
-            "Validator": "Waiting",
-            "Editor": "Waiting",
-            "DOCX Export": "Waiting",
+            "1. Planner Agent": "Waiting",
+            "2. Parallel Section Generators": "Waiting",
+            "3. Agentic RAG Loop": "Waiting",
+            "4. DOCX Compiler": "Waiting",
         },
     }
     for key, value in defaults.items():
@@ -330,17 +327,9 @@ def render_generate_tab(project: dict | None) -> None:
         if generate_sync:
             required_sections = [l.strip() for l in section_text.splitlines() if l.strip()] or None
             progress = st.progress(0, text="Preparing workflow")
-            set_workflow(active="Clarification")
+            set_workflow(active="1. Planner Agent")
             time.sleep(0.1)
-            progress.progress(12, text="Clarification complete")
-            set_workflow(active="Planner", done=["Clarification"])
-            time.sleep(0.1)
-            progress.progress(26, text="Planning section graph")
-            set_workflow(active="Retriever", done=["Clarification", "Planner"])
-            time.sleep(0.1)
-            progress.progress(42, text="Retrieving scoped context")
-            set_workflow(active="Writer", done=["Clarification", "Planner", "Retriever"])
-            with st.spinner("Running Agentic RAG pipeline…"):
+            with st.spinner("Running Agentic RAG pipeline in backend…"):
                 result = api_post(
                     "/generate",
                     json={
@@ -352,10 +341,7 @@ def render_generate_tab(project: dict | None) -> None:
                         "model_overrides": model_settings,
                     },
                 )
-            progress.progress(86, text="Validating & editing")
-            set_workflow(active="Validator", done=["Clarification", "Planner", "Retriever", "Writer"])
-            time.sleep(0.1)
-            progress.progress(100, text="DOCX export ready")
+            progress.progress(100, text="Generation complete")
             set_workflow(done=list(st.session_state.workflow_steps.keys()))
             st.session_state.last_result = result
             st.session_state.last_task_id = None
@@ -396,12 +382,9 @@ def _poll_task_progress(task_id: str, project: dict) -> None:
     status_text = st.empty()
     max_polls = 600  # ~10 min at 1 s intervals
     step_map = {
-        range(0, 12): ("Clarification", ["Clarification"]),
-        range(12, 30): ("Planner", ["Clarification"]),
-        range(30, 50): ("Retriever", ["Clarification", "Planner"]),
-        range(50, 80): ("Writer", ["Clarification", "Planner", "Retriever"]),
-        range(80, 92): ("Validator", ["Clarification", "Planner", "Retriever", "Writer"]),
-        range(92, 100): ("Editor", ["Clarification", "Planner", "Retriever", "Writer", "Validator"]),
+        range(0, 10): ("1. Planner Agent", []),
+        range(10, 90): ("3. Agentic RAG Loop", ["1. Planner Agent", "2. Parallel Section Generators"]),
+        range(90, 100): ("4. DOCX Compiler", ["1. Planner Agent", "2. Parallel Section Generators", "3. Agentic RAG Loop"]),
     }
 
     for _ in range(max_polls):

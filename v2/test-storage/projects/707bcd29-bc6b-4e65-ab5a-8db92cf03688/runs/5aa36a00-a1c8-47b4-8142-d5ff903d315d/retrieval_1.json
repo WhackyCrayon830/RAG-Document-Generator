@@ -1,0 +1,84 @@
+{
+  "section_id": "1",
+  "query": "give a breif user guide\n```json\n```json give a breif user guide",
+  "results": [
+    {
+      "chunk_id": "d5daf22d-b62e-4b8a-94f4-3b2036eecf94:12",
+      "document_id": "d5daf22d-b62e-4b8a-94f4-3b2036eecf94",
+      "score": 0.4283669579849288,
+      "metadata": {
+        "filename": "qw5146_EN.pdf",
+        "sha256": "88449acd3e375db16f34886dcec525c7f053b6e59f9a9b1d5631c8b982d8d754",
+        "chunk_index": 12,
+        "modality": "text",
+        "vector_score": 0.46532447868277155,
+        "keyword_score": 0.3333333333333333
+      }
+    },
+    {
+      "chunk_id": "d5daf22d-b62e-4b8a-94f4-3b2036eecf94:18",
+      "document_id": "d5daf22d-b62e-4b8a-94f4-3b2036eecf94",
+      "score": 0.422454118728841,
+      "metadata": {
+        "filename": "qw5146_EN.pdf",
+        "sha256": "88449acd3e375db16f34886dcec525c7f053b6e59f9a9b1d5631c8b982d8d754",
+        "chunk_index": 18,
+        "modality": "text",
+        "vector_score": 0.45711220193820506,
+        "keyword_score": 0.3333333333333333
+      }
+    },
+    {
+      "chunk_id": "d5daf22d-b62e-4b8a-94f4-3b2036eecf94:13",
+      "document_id": "d5daf22d-b62e-4b8a-94f4-3b2036eecf94",
+      "score": 0.4209713870574081,
+      "metadata": {
+        "filename": "qw5146_EN.pdf",
+        "sha256": "88449acd3e375db16f34886dcec525c7f053b6e59f9a9b1d5631c8b982d8d754",
+        "chunk_index": 13,
+        "modality": "text",
+        "vector_score": 0.4550528523945483,
+        "keyword_score": 0.3333333333333333
+      }
+    },
+    {
+      "chunk_id": "d5daf22d-b62e-4b8a-94f4-3b2036eecf94:0",
+      "document_id": "d5daf22d-b62e-4b8a-94f4-3b2036eecf94",
+      "score": 0.42016855306534884,
+      "metadata": {
+        "filename": "qw5146_EN.pdf",
+        "sha256": "88449acd3e375db16f34886dcec525c7f053b6e59f9a9b1d5631c8b982d8d754",
+        "chunk_index": 0,
+        "modality": "text",
+        "vector_score": 0.4539378051833549,
+        "keyword_score": 0.3333333333333333
+      }
+    },
+    {
+      "chunk_id": "d5daf22d-b62e-4b8a-94f4-3b2036eecf94:2",
+      "document_id": "d5daf22d-b62e-4b8a-94f4-3b2036eecf94",
+      "score": 0.419979787046633,
+      "metadata": {
+        "filename": "qw5146_EN.pdf",
+        "sha256": "88449acd3e375db16f34886dcec525c7f053b6e59f9a9b1d5631c8b982d8d754",
+        "chunk_index": 2,
+        "modality": "text",
+        "vector_score": 0.45367563015736073,
+        "keyword_score": 0.3333333333333333
+      }
+    },
+    {
+      "chunk_id": "d5daf22d-b62e-4b8a-94f4-3b2036eecf94:8",
+      "document_id": "d5daf22d-b62e-4b8a-94f4-3b2036eecf94",
+      "score": 0.4085577683134057,
+      "metadata": {
+        "filename": "qw5146_EN.pdf",
+        "sha256": "88449acd3e375db16f34886dcec525c7f053b6e59f9a9b1d5631c8b982d8d754",
+        "chunk_index": 8,
+        "modality": "text",
+        "vector_score": 0.43781171525010054,
+        "keyword_score": 0.3333333333333333
+      }
+    }
+  ]
+}

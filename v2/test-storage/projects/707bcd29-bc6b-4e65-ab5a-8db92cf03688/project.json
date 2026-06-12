@@ -1,0 +1,16 @@
+{
+  "id": "707bcd29-bc6b-4e65-ab5a-8db92cf03688",
+  "name": "test",
+  "documents": [
+    {
+      "id": "d5daf22d-b62e-4b8a-94f4-3b2036eecf94",
+      "filename": "qw5146_EN.pdf",
+      "sha256": "88449acd3e375db16f34886dcec525c7f053b6e59f9a9b1d5631c8b982d8d754",
+      "path": "test-storage\\projects\\707bcd29-bc6b-4e65-ab5a-8db92cf03688\\raw\\d5daf22d-b62e-4b8a-94f4-3b2036eecf94.pdf",
+      "parsed_path": "test-storage\\projects\\707bcd29-bc6b-4e65-ab5a-8db92cf03688\\parsed\\d5daf22d-b62e-4b8a-94f4-3b2036eecf94.json",
+      "chunks": 25,
+      "version": 1
+    }
+  ],
+  "templates": []
+}

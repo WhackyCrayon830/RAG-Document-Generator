@@ -519,7 +519,7 @@ function Start-ServiceIfNeeded {
     Step "Checking $Name"
     if (Test-Port $Port) {
         Ok "$Name already running on port $Port"
-        return
+        return $null
     }
     if (Test-Path $LogPath) {
         Clear-Content -LiteralPath $LogPath
@@ -527,8 +527,8 @@ function Start-ServiceIfNeeded {
     $envCommand = Export-EnvCommand $EnvVars
     $commandText = ($Command | ForEach-Object { Quote-Arg "$_" }) -join " "
     $script = "Set-Location '$Root'; $envCommand; $commandText *>&1 | Tee-Object -FilePath '$LogPath'"
-    $args = @("-NoExit", "-ExecutionPolicy", "Bypass", "-Command", $script)
-    Start-Process -FilePath "powershell.exe" -ArgumentList $args -WorkingDirectory $Root | Out-Null
+    $args = @("-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-Command", $script)
+    $proc = Start-Process -FilePath "powershell.exe" -ArgumentList $args -WorkingDirectory $Root -WindowStyle Hidden -PassThru
     Ok "$Name launch command sent"
     if (-not (Wait-Port -Port $Port -Name $Name)) {
         Warn "Recent $Name log:"
@@ -537,6 +537,7 @@ function Start-ServiceIfNeeded {
         }
         throw "$Name failed to start"
     }
+    return $proc
 }
 
 function Write-ConfigSummary {
@@ -619,7 +620,7 @@ try {
     $backendEnv.GENERATION_TIMEOUT_SECONDS = "$($configData.generation_timeout_seconds)"
     $backendEnv.WORKER_CONCURRENCY = "$($configData.worker_concurrency)"
 
-    Start-ServiceIfNeeded `
+    $backendProc = Start-ServiceIfNeeded `
         -Name "FastAPI backend" `
         -Port $configData.backend_port `
         -Command @($conda, "run", "-n", $configData.conda_env_name, "python", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "$($configData.backend_port)", "--reload") `
@@ -629,7 +630,7 @@ try {
     $frontendEnv = ConvertTo-Hashtable $backendEnv
     $frontendEnv.BACKEND_URL = "http://localhost:$($configData.backend_port)"
 
-    Start-ServiceIfNeeded `
+    $frontendProc = Start-ServiceIfNeeded `
         -Name "Streamlit frontend" `
         -Port $configData.frontend_port `
         -Command @($conda, "run", "-n", $configData.conda_env_name, "python", "-m", "streamlit", "run", "frontend/streamlit_app/app.py", "--server.port", "$($configData.frontend_port)", "--logger.level=error", "--browser.gatherUsageStats=false") `
@@ -649,6 +650,35 @@ try {
 
     if ($configData.open_browser) {
         Start-Process "http://localhost:$($configData.frontend_port)" | Out-Null
+    }
+
+    Write-Rule "Streaming Logs (Ctrl+C to stop)"
+    try {
+        $bStream = [System.IO.FileStream]::new($backendLog, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        $bReader = [System.IO.StreamReader]::new($bStream, [System.Text.Encoding]::UTF8)
+        $fStream = [System.IO.FileStream]::new($frontendLog, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        $fReader = [System.IO.StreamReader]::new($fStream, [System.Text.Encoding]::UTF8)
+        while ($true) {
+            $bLine = $bReader.ReadLine()
+            if ($null -ne $bLine) {
+                Write-Host "[backend]  " -ForegroundColor Cyan -NoNewline
+                Write-Host $bLine
+            }
+            $fLine = $fReader.ReadLine()
+            if ($null -ne $fLine) {
+                Write-Host "[frontend] " -ForegroundColor Magenta -NoNewline
+                Write-Host $fLine
+            }
+            if ($null -eq $bLine -and $null -eq $fLine) {
+                Start-Sleep -Milliseconds 100
+            }
+        }
+    } finally {
+        if ($bReader) { $bReader.Close() }
+        if ($fReader) { $fReader.Close() }
+        Write-Host "Stopping services..." -ForegroundColor Yellow
+        if ($backendProc -and -not $backendProc.HasExited) { Stop-Process -Id $backendProc.Id -Force -ErrorAction SilentlyContinue }
+        if ($frontendProc -and -not $frontendProc.HasExited) { Stop-Process -Id $frontendProc.Id -Force -ErrorAction SilentlyContinue }
     }
 } catch {
     Write-Rule "Launch failed"

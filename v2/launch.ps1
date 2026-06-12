@@ -120,8 +120,10 @@ port = 8501
 # ─── Celery worker ───────────────────────────────────────────────────────────
 if (-not $NoCelery) {
     Write-Host "Starting background task worker..." -ForegroundColor Cyan
-    Start-Process -PassThru -WindowStyle Hidden -FilePath "powershell" `
-        -ArgumentList "-NoExit -Command `"cd '$PSScriptRoot' && celery -A workers.celery_app worker --loglevel=warning --concurrency=2`""
+    $condaCmd = Get-CondaCommandQuick
+    $runEnvName = if ($EnvName) { $EnvName } else { "rag_document_generator" }
+    Start-Process -PassThru -WindowStyle Hidden -FilePath "powershell.exe" `
+        -ArgumentList "-ExecutionPolicy Bypass -WindowStyle Hidden -Command `"cd '$PSScriptRoot'; & '$condaCmd' run -n '$runEnvName' celery -A workers.celery_app worker --loglevel=warning --concurrency=2`"" | Out-Null
 }
 
 # ─── Delegate to scripts/launch.ps1 ─────────────────────────────────────────
