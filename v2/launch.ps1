@@ -1,6 +1,7 @@
-
 param(
-    [switch]$Config,
+    [switch]$Help,
+    [switch]$Interactive,
+    [switch]$Config,           # alias for -Interactive
     [switch]$ConfigOnly,
     [switch]$ShowConfig,
     [switch]$SkipModelPull,
@@ -10,7 +11,46 @@ param(
     [string]$EnvName = ""
 )
 
-# Helper function to get conda command
+# ─── Help ────────────────────────────────────────────────────────────────────
+if ($Help) {
+    Write-Host ""
+    Write-Host "+--------------------------------------------------------------------------+" -ForegroundColor Cyan
+    Write-Host "|   Offline RAG Document Generator – Launcher Help                        |" -ForegroundColor Cyan
+    Write-Host "+--------------------------------------------------------------------------+" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "USAGE" -ForegroundColor White
+    Write-Host "  .\launch.ps1 [flags]"
+    Write-Host ""
+    Write-Host "FLAGS" -ForegroundColor White
+    Write-Host "  (none)            Launch with default / previously saved configuration"
+    Write-Host "  -Interactive      Run the interactive setup wizard before launching"
+    Write-Host "  -Config           Alias for -Interactive"
+    Write-Host "  -ConfigOnly       Run setup wizard, save config, then exit (no launch)"
+    Write-Host "  -ShowConfig       Print active configuration and exit"
+    Write-Host "  -SkipModelPull    Skip automatic Ollama model pull/check"
+    Write-Host "  -NoBrowser        Do not open the browser after launch"
+    Write-Host "  -NoCelery         Do not start the Celery background worker"
+    Write-Host "  -Test             Run the pytest test suite and exit"
+    Write-Host "  -EnvName <name>   Override the conda environment name"
+    Write-Host "  -Help             Show this help message"
+    Write-Host ""
+    Write-Host "EXAMPLES" -ForegroundColor White
+    Write-Host "  .\launch.ps1                    # Start with defaults"
+    Write-Host "  .\launch.ps1 -Interactive       # Configure then start"
+    Write-Host "  .\launch.ps1 -NoBrowser         # Start without opening browser"
+    Write-Host "  .\launch.ps1 -SkipModelPull     # Start without pulling Ollama models"
+    Write-Host "  .\launch.ps1 -NoCelery          # Start without background task worker"
+    Write-Host "  .\launch.ps1 -Test              # Run test suite"
+    Write-Host "  .\launch.ps1 -ShowConfig        # Print current config"
+    Write-Host "  .\launch.ps1 -ConfigOnly        # Save config without launching"
+    Write-Host ""
+    exit 0
+}
+
+# -Config is an alias for -Interactive
+if ($Config) { $Interactive = $true }
+
+# ─── Helper: find conda ──────────────────────────────────────────────────────
 function Get-CondaCommandQuick {
     $cmd = Get-Command conda -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
@@ -26,19 +66,16 @@ function Get-CondaCommandQuick {
     return $null
 }
 
+# ─── Test mode ───────────────────────────────────────────────────────────────
 if ($Test) {
     Write-Host "Running tests..." -ForegroundColor Cyan
-    $Root = Resolve-Path (Join-Path $PSScriptRoot "..")
     $conda = Get-CondaCommandQuick
     if (-not $conda) {
-        Write-Host "Error: Conda not found. Please install Miniconda or Anaconda." -ForegroundColor Red
+        Write-Host "Error: Conda not found." -ForegroundColor Red
         exit 1
     }
-    
-    $envName = "rag_document_generator"
+    $envName = if ($EnvName) { $EnvName } else { "rag_document_generator" }
     Write-Host "Using conda environment: $envName" -ForegroundColor Yellow
-    Write-Host ""
-    
     & $conda run -n $envName pytest tests/ -v --cov=backend --cov-report=html
     if ($LASTEXITCODE -eq 0) {
         Write-Host ""
@@ -51,28 +88,13 @@ if ($Test) {
     exit 0
 }
 
-# Build parameters to pass to scripts/launch.ps1
-# Note: We pass parameters directly without array splatting to avoid
-# PowerShell interpreting flag names as positional values
-
-# Check if Celery worker should be started in background
-$startCelery = -not $NoCelery
-
-# Start Celery worker in background if requested
-if ($startCelery) {
-    Write-Host "Starting background task worker..." -ForegroundColor Cyan
-    $celeryProcess = Start-Process -PassThru -WindowStyle Hidden -FilePath "powershell" `
-        -ArgumentList "-NoExit -Command `"cd '$PSScriptRoot' && celery -A workers.celery_app worker --loglevel=warning --concurrency=2`""
-}
-
-$streamlitDir = Join-Path $env:USERPROFILE ".streamlit"
-$configFile = Join-Path $streamlitDir "config.toml"
-
+# ─── Streamlit config ────────────────────────────────────────────────────────
+$streamlitDir  = Join-Path $env:USERPROFILE ".streamlit"
+$streamlitConf = Join-Path $streamlitDir "config.toml"
 if (-not (Test-Path $streamlitDir)) {
     New-Item -ItemType Directory -Path $streamlitDir | Out-Null
 }
-
-if (-not (Test-Path $configFile)) {
+if (-not (Test-Path $streamlitConf)) {
 @"
 [logger]
 level = "error"
@@ -90,13 +112,24 @@ serverAddress = "localhost"
 
 [server]
 headless = true
-runOnSave = true
+runOnSave = false
 port = 8501
-"@ | Set-Content $configFile
+"@ | Set-Content $streamlitConf
 }
 
-# Execute the actual launcher with direct parameter passing
+# ─── Celery worker ───────────────────────────────────────────────────────────
+if (-not $NoCelery) {
+    Write-Host "Starting background task worker..." -ForegroundColor Cyan
+    Start-Process -PassThru -WindowStyle Hidden -FilePath "powershell" `
+        -ArgumentList "-NoExit -Command `"cd '$PSScriptRoot' && celery -A workers.celery_app worker --loglevel=warning --concurrency=2`""
+}
+
+# ─── Delegate to scripts/launch.ps1 ─────────────────────────────────────────
 $launcherPath = Join-Path $PSScriptRoot "scripts\launch.ps1"
-& $launcherPath -Config:$Config -ConfigOnly:$ConfigOnly -ShowConfig:$ShowConfig `
-                 -SkipModelPull:$SkipModelPull -NoBrowser:$NoBrowser `
-                 -EnvName $EnvName
+& $launcherPath `
+    -Interactive:$Interactive `
+    -ConfigOnly:$ConfigOnly `
+    -ShowConfig:$ShowConfig `
+    -SkipModelPull:$SkipModelPull `
+    -NoBrowser:$NoBrowser `
+    -EnvName $EnvName

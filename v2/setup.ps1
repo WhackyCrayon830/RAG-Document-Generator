@@ -138,29 +138,67 @@ function Install-Requirements {
         throw "Missing requirements.txt"
     }
     
-    python -m pip install --upgrade pip
-    python -m pip install -r $reqFile
+    # Prefer installing inside the conda environment if available
+    $condaOk, $condaPath = Test-Conda
+    $envName = "rag_document_generator"
+    if ($condaOk) {
+        & $condaPath run -n $envName pip install --upgrade pip setuptools wheel
+        & $condaPath run -n $envName pip install -r $reqFile
+    } else {
+        python -m pip install --upgrade pip
+        python -m pip install -r $reqFile
+    }
     
     if ($LASTEXITCODE -ne 0) {
-        Fail "Failed to install requirements"
-        throw "Pip install failed"
+        Fail "Failed to install some requirements"
+        Warn "Check the output above and install missing packages manually"
+    } else {
+        Ok "Dependencies installed"
     }
-    Ok "Dependencies installed"
 }
 
 function Test-ImportPackages {
     Step "Testing package imports"
     
-    $packages = @("fastapi", "streamlit", "pydantic", "sqlalchemy", "redis", "qdrant_client")
+    $packages = @(
+        @{Module="fastapi"; Label="fastapi"},
+        @{Module="streamlit"; Label="streamlit"},
+        @{Module="pydantic"; Label="pydantic"},
+        @{Module="redis"; Label="redis"},
+        @{Module="qdrant_client"; Label="qdrant_client"},
+        @{Module="celery"; Label="celery"},
+        @{Module="reportlab"; Label="reportlab"},
+        @{Module="pypdf"; Label="pypdf"},
+        @{Module="docx"; Label="python-docx"},
+        @{Module="pdfplumber"; Label="pdfplumber"},
+        @{Module="pytesseract"; Label="pytesseract"},
+        @{Module="numpy"; Label="numpy"},
+        @{Module="pandas"; Label="pandas"}
+    )
+    
+    # PyMuPDF can be imported as 'fitz' (old) or 'pymupdf' (new)
+    $result = python -c "import fitz; print('pymupdf OK')" 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Ok "pymupdf (fitz) is importable"
+    } else {
+        Warn "pymupdf import failed – run: pip install pymupdf"
+    }
     
     foreach ($pkg in $packages) {
-        $pythonCode = "import $pkg; print('$pkg OK')"
-        $result = python -c $pythonCode 2>&1
+        $result = python -c "import $($pkg.Module); print('$($pkg.Module) OK')" 2>&1
         if ($LASTEXITCODE -eq 0) {
-            Ok "$pkg is importable"
+            Ok "$($pkg.Label) is importable"
         } else {
-            Warn "$pkg import failed (may need installation)"
+            Warn "$($pkg.Label) import failed (may need installation)"
         }
+    }
+    
+    # transformers is optional/large – just check without failing
+    $result = python -c "import transformers; print('transformers OK')" 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Ok "transformers is importable (ML features enabled)"
+    } else {
+        Write-Host "  $($C.Dim)transformers not installed (optional – image captioning disabled)$($C.Reset)"
     }
 }
 

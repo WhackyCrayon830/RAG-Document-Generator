@@ -1,0 +1,25 @@
+# Environments
+.env
+.env.backup
+.env.production
+launcher-config.json
+app_settings.json
+
+# Local storage and cache
+storage/
+cache/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# IDE files
+.vscode/
+.idea/

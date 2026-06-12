@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
+from typing import Optional
 from pydantic import BaseModel
 
 
@@ -60,6 +61,28 @@ class ModelSettings(BaseModel):
     writing_model: str | None = None
     validation_model: str | None = None
     editing_model: str | None = None
+
+
+class GeneralSettings(BaseModel):
+    """All configurable system settings exposed via the Settings UI."""
+    ollama_base_url: Optional[str] = None
+    ollama_planning_model: Optional[str] = None
+    ollama_writing_model: Optional[str] = None
+    ollama_validation_model: Optional[str] = None
+    ollama_editing_model: Optional[str] = None
+    ollama_embedding_model: Optional[str] = None
+    use_ollama: Optional[bool] = None
+    max_upload_mb: Optional[int] = None
+    generation_timeout_seconds: Optional[int] = None
+    worker_concurrency: Optional[int] = None
+    max_concurrent_sections: Optional[int] = None
+    app_storage_dir: Optional[str] = None
+    redis_url: Optional[str] = None
+    qdrant_url: Optional[str] = None
+    postgres_host: Optional[str] = None
+    postgres_port: Optional[int] = None
+    postgres_db: Optional[str] = None
+    postgres_user: Optional[str] = None
 
 
 class PullModelRequest(BaseModel):

@@ -1,30 +1,35 @@
+import json
+import logging
+from datetime import datetime
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from datetime import datetime
 
+import requests
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
-import httpx
 
 from backend import services
-from backend.config.settings import get_settings
 from backend.api.models import (
-    ProjectCreate,
+    CancellationResponse,
+    GeneralSettings,
     GenerateRequest,
     ModelSettings,
+    ProjectCreate,
     PullModelRequest,
     SearchRequest,
     TaskResponse,
     TaskStatus,
 )
 from backend.api.task_tracker import TaskTracker
+from backend.config.settings import get_all_settings_dict, get_settings, save_runtime_settings
 from workers.celery_app import celery_app
 from workers import tasks as task_module
 
-import requests
-
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
+
+# ─────────────────────────────── Projects ────────────────────────────────────
 
 @router.get("/projects")
 def list_projects() -> list[dict]:
@@ -44,7 +49,7 @@ def get_project(project_id: str) -> dict:
     return project
 
 
-# === Synchronous endpoints (for backward compatibility) ===
+# ─────────────────────────────── Sync endpoints ──────────────────────────────
 
 @router.post("/upload")
 async def upload(
@@ -94,7 +99,7 @@ def generate(payload: GenerateRequest) -> dict:
     )
 
 
-# === Asynchronous endpoints ===
+# ─────────────────────────────── Async endpoints ─────────────────────────────
 
 @router.post("/upload/async")
 async def upload_async(
@@ -108,20 +113,18 @@ async def upload_async(
     max_bytes = settings.max_upload_mb * 1024 * 1024
     if len(content) > max_bytes:
         raise HTTPException(status_code=413, detail=f"File exceeds {settings.max_upload_mb} MB upload limit")
-    
+
     suffix = Path(file.filename or "upload").suffix
     with NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         tmp.write(content)
         tmp_path = Path(tmp.name)
-    
+
     try:
-        # Submit async task
         result = celery_app.send_task(
             "ingest_document",
             args=(project_id, str(tmp_path), file.filename or tmp_path.name),
             kwargs={"embedding_model": embedding_model},
         )
-        
         return TaskResponse(
             task_id=result.id,
             status=TaskStatus.PENDING,
@@ -130,7 +133,7 @@ async def upload_async(
         )
     except Exception as exc:
         tmp_path.unlink(missing_ok=True)
-        raise HTTPException(status_code=500, detail=f"Failed to queue ingestion: {str(exc)}") from exc
+        raise HTTPException(status_code=500, detail=f"Failed to queue ingestion: {exc}") from exc
 
 
 @router.post("/generate/async")
@@ -139,18 +142,13 @@ def generate_async(payload: GenerateRequest) -> TaskResponse:
     try:
         result = celery_app.send_task(
             "generate_document",
-            args=(
-                payload.project_id,
-                payload.title,
-                payload.prompt,
-            ),
+            args=(payload.project_id, payload.title, payload.prompt),
             kwargs={
                 "required_sections": payload.required_sections,
                 "template_id": payload.template_id,
                 "model_overrides": payload.model_overrides,
             },
         )
-        
         return TaskResponse(
             task_id=result.id,
             status=TaskStatus.PENDING,
@@ -158,18 +156,18 @@ def generate_async(payload: GenerateRequest) -> TaskResponse:
             created_at=datetime.utcnow(),
         )
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to queue generation: {str(exc)}") from exc
+        raise HTTPException(status_code=500, detail=f"Failed to queue generation: {exc}") from exc
 
+
+# ─────────────────────────────── Task management ─────────────────────────────
 
 @router.get("/tasks/{task_id}/status")
 def get_task_status(task_id: str):
     """Get the status of an async task."""
     tracker = TaskTracker()
     status = tracker.get_status(task_id)
-    
     if not status:
         raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
-    
     return status
 
 
@@ -177,44 +175,34 @@ def get_task_status(task_id: str):
 def cancel_task(task_id: str) -> dict:
     """Cancel a running task."""
     try:
-        # Revoke the Celery task
         celery_app.control.revoke(task_id, terminate=True)
-        
-        # Mark as revoked in tracker
         tracker = TaskTracker()
         tracker.cancel_task(task_id)
-        
         return {"task_id": task_id, "status": "revoked", "message": "Task cancellation requested"}
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to cancel task: {str(exc)}") from exc
+        raise HTTPException(status_code=500, detail=f"Failed to cancel task: {exc}") from exc
 
 
-# === Export endpoints ===
+# ─────────────────────────────── Export ──────────────────────────────────────
 
 @router.post("/projects/{project_id}/export/{run_id}/pdf")
 def export_pdf(project_id: str, run_id: str) -> FileResponse:
     """Export a generated document as PDF."""
     try:
-        # Get document info from the project
-        project_dir = services.project_dir(project_id)
-        sections_file = project_dir / "runs" / f"{run_id}_sections.json"
-        
+        proj_dir = services.project_dir(project_id)
+        sections_file = proj_dir / "runs" / f"{run_id}_sections.json"
         if not sections_file.exists():
             raise HTTPException(status_code=404, detail="Document not found")
-        
-        # Load sections
-        import json
         with open(sections_file) as f:
             data = json.load(f)
-        
-        # Generate PDF
         from backend.exporters.pdf import compile_pdf
-        output_path = project_dir / "exports" / f"{run_id}.pdf"
+        output_path = proj_dir / "exports" / f"{run_id}.pdf"
         compile_pdf(data.get("title", "Document"), data.get("sections", []), output_path)
-        
         return FileResponse(output_path, filename=f"{run_id}.pdf", media_type="application/pdf")
+    except HTTPException:
+        raise
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"PDF export failed: {str(exc)}") from exc
+        raise HTTPException(status_code=500, detail=f"PDF export failed: {exc}") from exc
 
 
 @router.get("/download/{project_id}/{run_id}")
@@ -225,15 +213,21 @@ def download(project_id: str, run_id: str) -> FileResponse:
     return FileResponse(path, filename=f"{run_id}.docx")
 
 
+# ─────────────────────────────── Retrieval ───────────────────────────────────
+
 @router.post("/retrieval/search")
 def search(payload: SearchRequest) -> list[dict]:
     return services.search_project(payload.project_id, payload.query, payload.top_k)
 
 
+# ─────────────────────────────── Events ──────────────────────────────────────
+
 @router.get("/projects/{project_id}/events")
 def events(project_id: str) -> list[dict]:
     return services.project_events(project_id)
 
+
+# ─────────────────────────────── Model settings ──────────────────────────────
 
 @router.get("/settings/models")
 def get_model_settings() -> dict:
@@ -244,6 +238,25 @@ def get_model_settings() -> dict:
 def save_model_settings(payload: ModelSettings) -> dict:
     return services.save_model_config(payload.model_dump(exclude_none=True))
 
+
+# ─────────────────────────────── General settings ────────────────────────────
+
+@router.get("/settings/general")
+def get_general_settings() -> dict:
+    """Return all configurable system settings."""
+    return get_all_settings_dict()
+
+
+@router.post("/settings/general")
+def save_general_settings(payload: GeneralSettings) -> dict:
+    """Persist updated system settings to runtime override file."""
+    overrides = {k: v for k, v in payload.model_dump().items() if v is not None}
+    if not overrides:
+        raise HTTPException(status_code=400, detail="No settings provided")
+    return save_runtime_settings(overrides)
+
+
+# ─────────────────────────────── Ollama ──────────────────────────────────────
 
 @router.get("/ollama/models")
 def list_ollama_models() -> dict:

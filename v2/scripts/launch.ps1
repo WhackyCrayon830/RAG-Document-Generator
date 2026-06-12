@@ -1,5 +1,5 @@
 param(
-    [switch]$Config,
+    [switch]$Interactive,
     [switch]$ConfigOnly,
     [switch]$ShowConfig,
     [switch]$SkipModelPull,
@@ -11,9 +11,25 @@ $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..")
-$ConfigPath = Join-Path $Root "storage\cache\launcher-config.json"
+
+$DocsFolder = [System.Environment]::GetFolderPath('MyDocuments')
+if ([string]::IsNullOrEmpty($DocsFolder)) {
+    $DocsFolder = Join-Path $env:USERPROFILE "Documents"
+    if (-not (Test-Path $DocsFolder)) {
+        $DocsFolder = Join-Path $env:USERPROFILE "OneDrive\Documents"
+        if (-not (Test-Path $DocsFolder)) {
+            $DocsFolder = $env:USERPROFILE
+        }
+    }
+}
+$DocsConfigDir = Join-Path $DocsFolder "RAG-Document-Generator"
+if (-not (Test-Path $DocsConfigDir)) {
+    New-Item -ItemType Directory -Path $DocsConfigDir -Force | Out-Null
+}
+
+$ConfigPath = Join-Path $DocsConfigDir "launcher-config.json"
+$DotEnvPath = Join-Path $DocsConfigDir ".env"
 $EnvFile = Join-Path $Root "environment.yml"
-$DotEnvPath = Join-Path $Root ".env"
 
 # Color helper function - uses PowerShell native colors
 function Write-Colored {
@@ -550,12 +566,15 @@ try {
     if ($SkipModelPull) { $configData.skip_model_pull = $true }
 
     $firstRun = -not (Test-Path $ConfigPath)
-    if ($Config -or $firstRun) {
+    if ($Interactive) {
         if ($firstRun) {
-            Warn "First run detected. Let's configure the launcher."
+            Warn "First run detected. Running interactive setup wizard."
         }
         $configData = Run-ConfigWizard $configData
     } else {
+        if ($firstRun) {
+            Warn "First run – using defaults. Run .\launch.ps1 -Interactive to customise."
+        }
         Write-DotEnv $configData
     }
 
@@ -622,7 +641,10 @@ try {
     Write-Host "Frontend  http://localhost:$($configData.frontend_port)" -ForegroundColor Green
     Write-Host "Logs      $logDir" -ForegroundColor Gray
     Write-Host ""
-    Write-Host "Run .\launch.ps1 -Config to change setup. Use -ConfigOnly to save without launching." -ForegroundColor DarkGray
+    Write-Host "Tips:" -ForegroundColor DarkGray
+    Write-Host "  .\launch.ps1 -Interactive   Run setup wizard" -ForegroundColor DarkGray
+    Write-Host "  .\launch.ps1 -ShowConfig    Show active config" -ForegroundColor DarkGray
+    Write-Host "  .\launch.ps1 -Help          Show all flags" -ForegroundColor DarkGray
     Write-Host ""
 
     if ($configData.open_browser) {

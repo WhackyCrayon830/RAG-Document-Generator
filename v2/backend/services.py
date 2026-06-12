@@ -174,6 +174,7 @@ def build_workflow(project_id: str, model_overrides: dict | None = None) -> Docu
         WriterAgent(ollama, settings, model_config["writing_model"]),
         ValidatorAgent(ollama, settings, model_config["validation_model"]),
         EditorAgent(ollama, settings, model_config["editing_model"]),
+        max_concurrent=settings.max_concurrent_sections,
     )
 
 
@@ -184,6 +185,7 @@ def generate_document(
     required_sections: list[str] | None,
     template_id: str | None,
     model_overrides: dict | None = None,
+    task_id: str | None = None,
 ) -> dict:
     project = get_project(project_id)
     template_path = None
@@ -191,7 +193,7 @@ def generate_document(
         template = next((item for item in project.get("templates", []) if item["id"] == template_id), None)
         template_path = Path(template["path"]) if template else None
     workflow = build_workflow(project_id, model_overrides)
-    return workflow.run(project_dir(project_id), title, prompt, required_sections, template_path)
+    return workflow.run(project_dir(project_id), title, prompt, required_sections, template_path, task_id=task_id)
 
 
 def search_project(project_id: str, query: str, top_k: int = 8) -> list[dict]:

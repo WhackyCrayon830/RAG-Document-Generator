@@ -1,3 +1,14 @@
+"""
+RAG Document Generator – Streamlit Dashboard
+- Two top-level tabs: Generate | Settings
+- @st.cache_data for all backend reads (invalidated on writes)
+- Async task polling for progress updates without page reloads
+- HTML rendered properly via unsafe_allow_html=True (no indented code block trap)
+- Settings tab exposes all configurable backend settings
+"""
+
+from __future__ import annotations
+
 import os
 import time
 from pathlib import Path
@@ -5,19 +16,25 @@ from pathlib import Path
 import requests
 import streamlit as st
 
-
 DEFAULT_API_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
+st.set_page_config(
+    page_title="RAG Document Generator",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+    menu_items={"About": "Offline RAG Document Generator v2"},
+)
 
-st.set_page_config(page_title="RAG Document Generator", layout="wide", initial_sidebar_state="collapsed")
 
+# ─────────────────────────────── Session state ───────────────────────────────
 
 def init_state() -> None:
-    defaults = {
+    defaults: dict = {
         "api_url": DEFAULT_API_URL,
         "dark_mode": True,
         "active_project_id": None,
         "last_result": None,
+        "last_task_id": None,
         "workflow_steps": {
             "Clarification": "Waiting",
             "Planner": "Waiting",
@@ -35,190 +52,186 @@ def init_state() -> None:
 init_state()
 
 
+# ─────────────────────────────── CSS / Theming ───────────────────────────────
+
 def inject_css(dark_mode: bool) -> None:
     if dark_mode:
-        colors = {
+        c = {
             "bg": "#0f1117",
             "panel": "#171b24",
-            "panel_2": "#202634",
+            "panel2": "#202634",
             "text": "#f2f4f8",
             "muted": "#9aa4b2",
             "border": "#2d3545",
             "accent": "#5dd6c7",
             "ok": "#64d887",
             "warn": "#f2c66d",
+            "err": "#ff6b6b",
         }
     else:
-        colors = {
+        c = {
             "bg": "#f6f7fb",
             "panel": "#ffffff",
-            "panel_2": "#eef2f7",
+            "panel2": "#eef2f7",
             "text": "#161a22",
             "muted": "#627084",
             "border": "#d9e0ea",
             "accent": "#176b87",
             "ok": "#207a45",
             "warn": "#9b6417",
+            "err": "#c0392b",
         }
 
-    st.markdown(
-        f"""
-        <style>
-        .stApp {{
-            background: {colors["bg"]};
-            color: {colors["text"]};
-        }}
-        [data-testid="stHeader"] {{
-            background: transparent;
-        }}
-        .main .block-container {{
-            max-width: 1320px;
-            padding-top: 2rem;
-        }}
-        .app-title {{
-            font-size: 2.1rem;
-            font-weight: 760;
-            letter-spacing: 0;
-            margin-bottom: .2rem;
-        }}
-        .app-subtitle {{
-            color: {colors["muted"]};
-            font-size: 1rem;
-            margin-bottom: 1.2rem;
-        }}
-        .metric-card, .agent-card, .soft-card {{
-            background: {colors["panel"]};
-            border: 1px solid {colors["border"]};
-            border-radius: 14px;
-            padding: 1rem;
-            box-shadow: 0 10px 30px rgba(0,0,0,.08);
-        }}
-        .agent-card {{
-            position: sticky;
-            top: 1rem;
-        }}
-        .card-title {{
-            font-size: 1.02rem;
-            font-weight: 720;
-            margin-bottom: .75rem;
-        }}
-        .step-row {{
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: .75rem;
-            border-bottom: 1px solid {colors["border"]};
-            padding: .62rem 0;
-        }}
-        .step-row:last-child {{
-            border-bottom: 0;
-        }}
-        .step-name {{
-            color: {colors["text"]};
-            font-weight: 620;
-        }}
-        .pill {{
-            border-radius: 999px;
-            padding: .2rem .55rem;
-            font-size: .78rem;
-            white-space: nowrap;
-            background: {colors["panel_2"]};
-            color: {colors["muted"]};
-            border: 1px solid {colors["border"]};
-        }}
-        .pill-done {{
-            color: {colors["ok"]};
-            border-color: {colors["ok"]};
-        }}
-        .pill-active {{
-            color: {colors["accent"]};
-            border-color: {colors["accent"]};
-        }}
-        .pill-review {{
-            color: {colors["warn"]};
-            border-color: {colors["warn"]};
-        }}
-        .small-muted {{
-            color: {colors["muted"]};
-            font-size: .9rem;
-        }}
-        div[data-testid="stTabs"] button {{
-            border-radius: 999px;
-        }}
-        div.stButton > button, div[data-testid="stDownloadButton"] button {{
-            border-radius: 10px;
-            font-weight: 650;
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.markdown(f"""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+html, body, [class*="css"] {{ font-family: 'Inter', sans-serif; }}
+.stApp {{ background: {c["bg"]}; color: {c["text"]}; }}
+[data-testid="stHeader"] {{ background: transparent; }}
+.main .block-container {{ max-width: 1380px; padding-top: 1.5rem; }}
+.app-title {{ font-size: 2rem; font-weight: 760; letter-spacing: -0.5px; margin-bottom: .15rem; }}
+.app-subtitle {{ color: {c["muted"]}; font-size: .95rem; margin-bottom: 1rem; }}
+.metric-card, .agent-card, .soft-card {{
+    background: {c["panel"]};
+    border: 1px solid {c["border"]};
+    border-radius: 14px;
+    padding: 1rem 1.2rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,.06);
+}}
+.agent-card {{ position: sticky; top: 1rem; }}
+.card-title {{ font-size: 1rem; font-weight: 700; margin-bottom: .75rem; color: {c["text"]}; }}
+.step-row {{
+    display: flex; align-items: center; justify-content: space-between;
+    gap: .6rem; border-bottom: 1px solid {c["border"]}; padding: .55rem 0;
+}}
+.step-row:last-child {{ border-bottom: 0; }}
+.step-name {{ color: {c["text"]}; font-weight: 600; font-size: .9rem; }}
+.pill {{
+    border-radius: 999px; padding: .18rem .52rem;
+    font-size: .75rem; white-space: nowrap;
+    background: {c["panel2"]}; color: {c["muted"]};
+    border: 1px solid {c["border"]};
+}}
+.pill-done {{ color: {c["ok"]}; border-color: {c["ok"]}; background: transparent; }}
+.pill-active {{ color: {c["accent"]}; border-color: {c["accent"]}; background: transparent; }}
+.pill-review {{ color: {c["warn"]}; border-color: {c["warn"]}; background: transparent; }}
+.pill-error {{ color: {c["err"]}; border-color: {c["err"]}; background: transparent; }}
+.small-muted {{ color: {c["muted"]}; font-size: .88rem; }}
+div[data-testid="stTabs"] button {{ border-radius: 999px; font-weight: 600; }}
+div.stButton > button, div[data-testid="stDownloadButton"] button {{
+    border-radius: 10px; font-weight: 650;
+}}
+.settings-section-header {{
+    font-size: 1rem; font-weight: 700; color: {c["accent"]};
+    margin-top: 1.2rem; margin-bottom: .4rem;
+    border-bottom: 1px solid {c["border"]}; padding-bottom: .3rem;
+}}
+</style>""", unsafe_allow_html=True)
 
 
-def api_get(path: str):
-    response = requests.get(f"{st.session_state.api_url}{path}", timeout=30)
-    response.raise_for_status()
-    return response.json()
+# ─────────────────────────────── API helpers ─────────────────────────────────
+
+def _url(path: str) -> str:
+    return f"{st.session_state.api_url}{path}"
 
 
-def api_post(path: str, json=None, files=None, data=None):
-    response = requests.post(
-        f"{st.session_state.api_url}{path}",
-        json=json,
-        files=files,
-        data=data,
-        timeout=600,
-    )
-    response.raise_for_status()
-    return response.json()
+def api_get(path: str, timeout: int = 20):
+    r = requests.get(_url(path), timeout=timeout)
+    r.raise_for_status()
+    return r.json()
 
+
+def api_post(path: str, json=None, files=None, data=None, timeout: int = 600):
+    r = requests.post(_url(path), json=json, files=files, data=data, timeout=timeout)
+    r.raise_for_status()
+    return r.json()
+
+
+# ── Cached data fetches ───────────────────────────────────────────────────────
+
+@st.cache_data(ttl=30, show_spinner=False)
+def load_projects(_api: str) -> list[dict]:
+    try:
+        return api_get("/projects")
+    except Exception:
+        return []
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_project(_api: str, project_id: str) -> dict | None:
+    try:
+        return api_get(f"/projects/{project_id}")
+    except Exception:
+        return None
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def fetch_model_settings(_api: str) -> dict:
+    try:
+        return api_get("/settings/models")
+    except Exception:
+        return {
+            "embedding_model": "nomic-embed-text",
+            "planning_model": "qwen3:14b",
+            "writing_model": "qwen3:14b",
+            "validation_model": "gemma3:12b",
+            "editing_model": "mistral-small",
+        }
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def fetch_general_settings(_api: str) -> dict:
+    try:
+        return api_get("/settings/general")
+    except Exception:
+        return {}
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_ollama_models(_api: str) -> dict:
+    try:
+        return api_get("/ollama/models")
+    except Exception as exc:
+        return {"available": False, "models": [], "error": str(exc), "base_url": ""}
+
+
+# ─────────────────────────────── Shared UI ───────────────────────────────────
 
 def render_header() -> None:
     left, right = st.columns([3, 1])
     with left:
         st.markdown('<div class="app-title">Offline RAG Document Generator</div>', unsafe_allow_html=True)
         st.markdown(
-            '<div class="app-subtitle">Generate template-aware documents with local Ollama agents and scoped retrieval.</div>',
+            '<div class="app-subtitle">Generate template-aware documents with local Ollama agents and hybrid retrieval.</div>',
             unsafe_allow_html=True,
         )
     with right:
-        st.session_state.api_url = st.text_input("Backend", value=st.session_state.api_url, label_visibility="collapsed")
+        st.session_state.api_url = st.text_input(
+            "Backend URL", value=st.session_state.api_url, label_visibility="collapsed"
+        )
 
 
 def status_pill(status: str) -> str:
-    css = "pill"
-    if status == "Complete":
-        css += " pill-done"
-    elif status == "Running":
-        css += " pill-active"
-    elif status == "Review":
-        css += " pill-review"
-    return f'<span class="{css}">{status}</span>'
+    css_map = {"Complete": "pill-done", "Running": "pill-active",
+               "Review": "pill-review", "Failed": "pill-error"}
+    extra = css_map.get(status, "")
+    return f'<span class="pill {extra}">{status}</span>'
 
 
 def render_agent_card() -> None:
-    rows = []
-    for name, status in st.session_state.workflow_steps.items():
-        rows.append(
-            f"""
-            <div class="step-row">
-                <span class="step-name">{name}</span>
-                {status_pill(status)}
-            </div>
-            """
-        )
-    st.markdown(
-        f"""
-        <div class="agent-card">
-            <div class="card-title">Agent workflow</div>
-            {''.join(rows)}
-            <div class="small-muted" style="margin-top:.75rem;">
-                Writers only receive the current section, adjacent summaries, template hints, and retrieved evidence.
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    rows = "".join(
+        f'<div class="step-row"><span class="step-name">{name}</span>{status_pill(status)}</div>'
+        for name, status in st.session_state.workflow_steps.items()
     )
+    html = (
+        '<div class="agent-card">'
+        '<div class="card-title">Agent workflow</div>'
+        + rows
+        + '<div class="small-muted" style="margin-top:.65rem;">'
+        "Writers receive only the current section context, adjacent summaries, template hints, and retrieved evidence."
+        "</div></div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def set_workflow(active: str | None = None, done: list[str] | None = None, review: list[str] | None = None) -> None:
@@ -235,113 +248,99 @@ def set_workflow(active: str | None = None, done: list[str] | None = None, revie
             st.session_state.workflow_steps[step] = "Waiting"
 
 
-def load_projects() -> list[dict]:
-    try:
-        return api_get("/projects")
-    except requests.RequestException:
-        return []
-
-
-def selected_project(projects: list[dict]) -> dict | None:
-    if not projects:
-        return None
-    ids = [project["id"] for project in projects]
-    if st.session_state.active_project_id not in ids:
-        st.session_state.active_project_id = ids[0]
-    for project in projects:
-        if project["id"] == st.session_state.active_project_id:
-            try:
-                return api_get(f"/projects/{project['id']}")
-            except requests.RequestException:
-                return project
-    return projects[0]
-
+# ─────────────────────────────── Project sidebar ─────────────────────────────
 
 def render_project_picker(projects: list[dict]) -> None:
+    api = st.session_state.api_url
     with st.sidebar:
         st.markdown("### Workspace")
         if projects:
-            labels = {f"{project['name']} · {project['id'][:8]}": project["id"] for project in projects}
-            current_label = next(
-                (label for label, pid in labels.items() if pid == st.session_state.active_project_id),
+            labels = {f"{p['name']} · {p['id'][:8]}": p["id"] for p in projects}
+            current = next(
+                (lbl for lbl, pid in labels.items() if pid == st.session_state.active_project_id),
                 list(labels.keys())[0],
             )
-            choice = st.selectbox("Project", list(labels.keys()), index=list(labels.keys()).index(current_label))
-            st.session_state.active_project_id = labels[choice]
-        with st.form("create_project"):
-            name = st.text_input("New project")
+            choice = st.selectbox("Project", list(labels.keys()),
+                                  index=list(labels.keys()).index(current),
+                                  key="proj_picker")
+            new_pid = labels[choice]
+            if new_pid != st.session_state.active_project_id:
+                st.session_state.active_project_id = new_pid
+                # Do NOT call st.rerun() – just let next render pick it up
+        with st.form("create_project", clear_on_submit=True):
+            name = st.text_input("New project name", key="new_proj_name")
             if st.form_submit_button("Create project") and name.strip():
                 project = api_post("/projects", json={"name": name.strip()})
                 st.session_state.active_project_id = project["id"]
+                load_projects.clear()
                 st.rerun()
+        st.sidebar.toggle("Dark mode", value=st.session_state.dark_mode, key="dark_mode")
 
 
-def get_model_settings() -> dict:
-    try:
-        return api_get("/settings/models")
-    except requests.RequestException:
-        return {
-            "embedding_model": "nomic-embed-text",
-            "planning_model": "qwen3:14b",
-            "writing_model": "qwen3:14b",
-            "validation_model": "gemma3:12b",
-            "editing_model": "mistral-small",
-        }
+# ─────────────────────────────── Generate tab ────────────────────────────────
 
-
-def get_ollama_models() -> dict:
-    try:
-        return api_get("/ollama/models")
-    except requests.RequestException as exc:
-        return {"available": False, "models": [], "error": str(exc), "base_url": ""}
-
-
-def render_generate_page(project: dict | None) -> None:
-    left, right = st.columns([2.15, 1], gap="large")
+def render_generate_tab(project: dict | None) -> None:
+    left, right = st.columns([2.2, 1], gap="large")
     with right:
         render_agent_card()
 
     with left:
         if not project:
-            st.info("Create a project in the sidebar to start generating documents.")
+            st.info("Create or select a project in the sidebar to start generating documents.")
             return
 
         documents = project.get("documents", [])
         templates = project.get("templates", [])
-        model_settings = get_model_settings()
+        model_settings = fetch_model_settings(st.session_state.api_url)
 
         c1, c2, c3 = st.columns(3)
-        c1.markdown(f'<div class="metric-card"><b>{len(documents)}</b><br><span class="small-muted">Source documents</span></div>', unsafe_allow_html=True)
-        c2.markdown(f'<div class="metric-card"><b>{sum(doc.get("chunks", 0) for doc in documents)}</b><br><span class="small-muted">Knowledge chunks</span></div>', unsafe_allow_html=True)
-        c3.markdown(f'<div class="metric-card"><b>{len(templates)}</b><br><span class="small-muted">DOCX templates</span></div>', unsafe_allow_html=True)
+        c1.markdown(
+            f'<div class="metric-card"><b>{len(documents)}</b><br><span class="small-muted">Source documents</span></div>',
+            unsafe_allow_html=True,
+        )
+        c2.markdown(
+            f'<div class="metric-card"><b>{sum(d.get("chunks", 0) for d in documents)}</b><br><span class="small-muted">Knowledge chunks</span></div>',
+            unsafe_allow_html=True,
+        )
+        c3.markdown(
+            f'<div class="metric-card"><b>{len(templates)}</b><br><span class="small-muted">DOCX templates</span></div>',
+            unsafe_allow_html=True,
+        )
 
         st.write("")
         with st.container(border=True):
             st.subheader("Generation workflow")
-            title = st.text_input("Document title", value="Generated Document")
-            prompt = st.text_area("Document brief", height=150, placeholder="Describe the document you want to produce.")
-            section_text = st.text_area("Required sections, one per line", height=110)
-            template_choices = {"No template": None}
+            title = st.text_input("Document title", value="Generated Document", key="gen_title")
+            prompt = st.text_area("Document brief", height=130,
+                                  placeholder="Describe the document you want to produce.",
+                                  key="gen_prompt")
+            section_text = st.text_area("Required sections (one per line)", height=100,
+                                        key="gen_sections")
+            template_choices: dict[str, str | None] = {"No template": None}
             template_choices.update({item["filename"]: item["id"] for item in templates})
-            template_label = st.selectbox("Template", list(template_choices.keys()))
+            template_label = st.selectbox("Template", list(template_choices.keys()), key="gen_template")
 
-            generate = st.button("Generate DOCX", type="primary", disabled=not prompt.strip())
+            col_btn, col_async = st.columns([1, 1])
+            generate_sync = col_btn.button("Generate (sync)", type="primary", disabled=not prompt.strip(),
+                                           key="gen_sync")
+            generate_async = col_async.button("Generate (async + live progress)",
+                                              disabled=not prompt.strip(), key="gen_async")
 
-        if generate:
-            required_sections = [line.strip() for line in section_text.splitlines() if line.strip()] or None
+        # ── Sync generation ──────────────────────────────────────────────────
+        if generate_sync:
+            required_sections = [l.strip() for l in section_text.splitlines() if l.strip()] or None
             progress = st.progress(0, text="Preparing workflow")
             set_workflow(active="Clarification")
-            time.sleep(0.15)
+            time.sleep(0.1)
             progress.progress(12, text="Clarification complete")
             set_workflow(active="Planner", done=["Clarification"])
-            time.sleep(0.15)
+            time.sleep(0.1)
             progress.progress(26, text="Planning section graph")
             set_workflow(active="Retriever", done=["Clarification", "Planner"])
-            time.sleep(0.15)
+            time.sleep(0.1)
             progress.progress(42, text="Retrieving scoped context")
             set_workflow(active="Writer", done=["Clarification", "Planner", "Retriever"])
-
-            with st.spinner("Generating with Ollama agents"):
+            with st.spinner("Running Agentic RAG pipeline…"):
                 result = api_post(
                     "/generate",
                     json={
@@ -353,232 +352,400 @@ def render_generate_page(project: dict | None) -> None:
                         "model_overrides": model_settings,
                     },
                 )
-
-            progress.progress(72, text="Validating generated sections")
+            progress.progress(86, text="Validating & editing")
             set_workflow(active="Validator", done=["Clarification", "Planner", "Retriever", "Writer"])
-            time.sleep(0.15)
-            progress.progress(86, text="Editing final prose")
-            set_workflow(active="Editor", done=["Clarification", "Planner", "Retriever", "Writer", "Validator"])
-            time.sleep(0.15)
+            time.sleep(0.1)
             progress.progress(100, text="DOCX export ready")
             set_workflow(done=list(st.session_state.workflow_steps.keys()))
             st.session_state.last_result = result
+            st.session_state.last_task_id = None
             st.success("Document generated.")
 
-        if st.session_state.last_result:
-            result = st.session_state.last_result
-            st.markdown("### Latest result")
-            st.link_button("Download DOCX", f"{st.session_state.api_url}/download/{project['id']}/{result['run_id']}")
-            for section in result["sections"]:
-                verdict = section.get("validation", {}).get("verdict", "review")
-                with st.expander(f"{section['title']} · {verdict}"):
-                    st.write(section["content"])
-                    st.json(section.get("validation", {}))
+        # ── Async generation with live progress polling ───────────────────────
+        if generate_async:
+            required_sections = [l.strip() for l in section_text.splitlines() if l.strip()] or None
+            resp = api_post(
+                "/generate/async",
+                json={
+                    "project_id": project["id"],
+                    "title": title,
+                    "prompt": prompt,
+                    "required_sections": required_sections,
+                    "template_id": template_choices[template_label],
+                    "model_overrides": model_settings,
+                },
+            )
+            task_id = resp["task_id"]
+            st.session_state.last_task_id = task_id
+            st.session_state.last_result = None
+            st.info(f"Task queued: `{task_id}` — polling for progress…")
+            _poll_task_progress(task_id, project)
+
+        # ── Resume polling if a task is in flight ─────────────────────────────
+        elif st.session_state.last_task_id and not st.session_state.last_result:
+            if st.button("🔄 Resume polling", key="resume_poll"):
+                _poll_task_progress(st.session_state.last_task_id, project)
+
+        # ── Show last result ──────────────────────────────────────────────────
+        _render_last_result(project)
 
 
-def render_documents_settings(project: dict | None) -> None:
-    if not project:
-        st.info("Create a project first.")
+def _poll_task_progress(task_id: str, project: dict) -> None:
+    """Poll /tasks/{task_id}/status and update UI until done."""
+    progress_bar = st.progress(0, text="Queued…")
+    status_text = st.empty()
+    max_polls = 600  # ~10 min at 1 s intervals
+    step_map = {
+        range(0, 12): ("Clarification", ["Clarification"]),
+        range(12, 30): ("Planner", ["Clarification"]),
+        range(30, 50): ("Retriever", ["Clarification", "Planner"]),
+        range(50, 80): ("Writer", ["Clarification", "Planner", "Retriever"]),
+        range(80, 92): ("Validator", ["Clarification", "Planner", "Retriever", "Writer"]),
+        range(92, 100): ("Editor", ["Clarification", "Planner", "Retriever", "Writer", "Validator"]),
+    }
+
+    for _ in range(max_polls):
+        try:
+            s = api_get(f"/tasks/{task_id}/status", timeout=10)
+        except Exception:
+            time.sleep(2)
+            continue
+
+        pct = s.get("progress", 0) or 0
+        msg = s.get("current", "Working…") or "Working…"
+        status_val = s.get("status", "started")
+
+        progress_bar.progress(min(pct, 100), text=msg)
+        status_text.caption(f"Status: **{status_val}** · {pct}%")
+
+        # Update workflow step indicators
+        for rng, (active, done) in step_map.items():
+            if pct in rng:
+                set_workflow(active=active, done=done)
+                break
+
+        if status_val in ("success", "failure", "revoked"):
+            if status_val == "success":
+                set_workflow(done=list(st.session_state.workflow_steps.keys()))
+                progress_bar.progress(100, text="Done!")
+                if s.get("result"):
+                    # Try fetching the full run result
+                    try:
+                        run_id = s["result"].get("run_id", "")
+                        full = api_get(f"/projects/{project['id']}")
+                        # Store the task result summary
+                        st.session_state.last_result = s["result"]
+                    except Exception:
+                        st.session_state.last_result = s.get("result", {})
+                st.session_state.last_task_id = None
+                st.success("Generation complete!")
+            elif status_val == "failure":
+                st.error(f"Generation failed: {s.get('error', 'Unknown error')}")
+                st.session_state.last_task_id = None
+            else:
+                st.warning("Task was cancelled.")
+                st.session_state.last_task_id = None
+            break
+
+        time.sleep(1)
+
+
+def _render_last_result(project: dict) -> None:
+    """Display the most recent generation result and download link."""
+    result = st.session_state.last_result
+    if not result:
         return
+    run_id = result.get("run_id") or result.get("run_id", "")
+    st.markdown("### Latest result")
+    if run_id:
+        st.link_button(
+            "⬇ Download DOCX",
+            f"{st.session_state.api_url}/download/{project['id']}/{run_id}",
+        )
+    sections = result.get("sections", [])
+    if sections:
+        for section in sections:
+            verdict = section.get("validation", {}).get("verdict", "review")
+            with st.expander(f"{section.get('title', 'Section')} · {verdict}"):
+                st.write(section.get("content", ""))
+                val = section.get("validation", {})
+                if val:
+                    st.json(val)
 
-    model_settings = get_model_settings()
+
+# ─────────────────────────────── Settings tab ────────────────────────────────
+
+def render_settings_tab(project: dict | None) -> None:
+    tab_docs, tab_tpl, tab_models, tab_general, tab_proj = st.tabs([
+        "📂 Documents",
+        "📄 Templates",
+        "🤖 Ollama Models",
+        "⚙ General Config",
+        "🗂 Project",
+    ])
+
+    with tab_docs:
+        _render_documents(project)
+    with tab_tpl:
+        _render_templates(project)
+    with tab_models:
+        _render_ollama_settings()
+    with tab_general:
+        _render_general_settings()
+    with tab_proj:
+        _render_project_info(project)
+
+
+def _render_documents(project: dict | None) -> None:
+    if not project:
+        st.info("Select or create a project first.")
+        return
+    api = st.session_state.api_url
+    model_settings = fetch_model_settings(api)
     st.subheader("Upload and manage knowledge")
-    uploaded = st.file_uploader("Source documents", type=["pdf", "docx", "txt", "md"], accept_multiple_files=True)
-    if st.button("Ingest selected documents", disabled=not uploaded):
+    uploaded = st.file_uploader(
+        "Source documents", type=["pdf", "docx", "txt", "md"],
+        accept_multiple_files=True, key="doc_uploader"
+    )
+    if st.button("Ingest selected documents", disabled=not uploaded, key="ingest_btn"):
         for file in uploaded or []:
-            with st.spinner(f"Ingesting {file.name}"):
+            with st.spinner(f"Ingesting {file.name}…"):
                 result = api_post(
                     "/upload",
                     files={"file": (file.name, file.getvalue())},
                     data={"project_id": project["id"], "embedding_model": model_settings["embedding_model"]},
                 )
                 st.write(result)
+        # Invalidate cached project data
+        fetch_project.clear()
+        load_projects.clear()
         st.rerun()
 
     documents = project.get("documents", [])
     st.markdown("#### Document library")
     if documents:
         st.dataframe(
-            [
-                {
-                    "Filename": item["filename"],
-                    "Chunks": item["chunks"],
-                    "Hash": item["sha256"][:16],
-                    "Document ID": item["id"],
-                }
-                for item in documents
-            ],
-            use_container_width=True,
-            hide_index=True,
+            [{"Filename": d["filename"], "Chunks": d["chunks"],
+              "Hash": d["sha256"][:16], "ID": d["id"]} for d in documents],
+            use_container_width=True, hide_index=True,
         )
     else:
         st.caption("No documents ingested yet.")
 
     st.markdown("#### Retrieval test")
-    query = st.text_input("Search knowledge base")
-    if st.button("Search", disabled=not query.strip()):
-        results = api_post("/retrieval/search", json={"project_id": project["id"], "query": query, "top_k": 8})
+    query = st.text_input("Search knowledge base", key="retrieval_query")
+    if st.button("Search", disabled=not query.strip(), key="search_btn"):
+        results = api_post("/retrieval/search",
+                           json={"project_id": project["id"], "query": query, "top_k": 8})
         for item in results:
-            with st.expander(f"{item['metadata'].get('filename', item['document_id'])} · {item['score']:.3f}"):
+            fname = item["metadata"].get("filename", item["document_id"])
+            with st.expander(f"{fname} · {item['score']:.3f}"):
                 st.write(item["text"])
                 st.json(item["metadata"])
 
 
-def render_template_settings(project: dict | None) -> None:
+def _render_templates(project: dict | None) -> None:
     if not project:
-        st.info("Create a project first.")
+        st.info("Select or create a project first.")
         return
     st.subheader("Template manager")
-    template_file = st.file_uploader("DOCX template", type=["docx"])
-    if st.button("Save template", disabled=not template_file):
+    tpl_file = st.file_uploader("DOCX template", type=["docx"], key="tpl_uploader")
+    if st.button("Save template", disabled=not tpl_file, key="save_tpl_btn"):
         result = api_post(
             "/template",
-            files={"file": (template_file.name, template_file.getvalue())},
+            files={"file": (tpl_file.name, tpl_file.getvalue())},
             data={"project_id": project["id"]},
         )
         st.success(f"Saved {result['filename']}")
+        fetch_project.clear()
+        load_projects.clear()
         st.rerun()
-
     templates = project.get("templates", [])
     if templates:
         st.dataframe(
-            [
-                {
-                    "Filename": item["filename"],
-                    "Placeholders": len(item["profile"].get("placeholders", [])),
-                    "Styles read": len(item["profile"].get("styles", [])),
-                    "Template ID": item["id"],
-                }
-                for item in templates
-            ],
-            use_container_width=True,
-            hide_index=True,
+            [{"Filename": t["filename"],
+              "Placeholders": len(t["profile"].get("placeholders", [])),
+              "Styles": len(t["profile"].get("styles", [])),
+              "ID": t["id"]} for t in templates],
+            use_container_width=True, hide_index=True,
         )
     else:
         st.caption("No templates uploaded yet.")
 
 
-def render_ollama_settings() -> None:
+def _render_ollama_settings() -> None:
+    api = st.session_state.api_url
     st.subheader("Ollama model management")
-    model_settings = get_model_settings()
-    ollama = get_ollama_models()
+    model_settings = fetch_model_settings(api)
+    ollama = fetch_ollama_models(api)
 
-    if ollama["available"]:
+    if ollama.get("available"):
         st.success(f"Ollama connected at {ollama['base_url']}")
     else:
-        st.warning(f"Ollama is not reachable at {ollama.get('base_url') or st.session_state.api_url}")
-        if ollama.get("error"):
-            st.caption(ollama["error"])
+        st.warning(f"Ollama unreachable · {ollama.get('error', '')}")
 
-    discovered = ollama.get("models", [])
-    default_options = [
-        "qwen3:14b",
-        "gemma3:12b",
-        "mistral-small",
-        "nomic-embed-text",
-    ]
-    options = sorted(set(discovered + default_options))
+    discovered: list[str] = ollama.get("models", [])
+    default_opts = ["qwen3:14b", "gemma3:12b", "mistral-small", "nomic-embed-text", "llama3:8b", "phi3:mini"]
+    options = sorted(set(discovered + default_opts))
 
-    with st.form("model_settings"):
-        embedding_model = st.selectbox(
-            "Embedding model",
-            options,
-            index=options.index(model_settings["embedding_model"]) if model_settings["embedding_model"] in options else 0,
-        )
-        planning_model = st.selectbox(
-            "Planning model",
-            options,
-            index=options.index(model_settings["planning_model"]) if model_settings["planning_model"] in options else 0,
-        )
-        writing_model = st.selectbox(
-            "Writing model",
-            options,
-            index=options.index(model_settings["writing_model"]) if model_settings["writing_model"] in options else 0,
-        )
-        validation_model = st.selectbox(
-            "Validation model",
-            options,
-            index=options.index(model_settings["validation_model"]) if model_settings["validation_model"] in options else 0,
-        )
-        editing_model = st.selectbox(
-            "Editing model",
-            options,
-            index=options.index(model_settings["editing_model"]) if model_settings["editing_model"] in options else 0,
-        )
+    def idx(val: str) -> int:
+        return options.index(val) if val in options else 0
 
-        if st.form_submit_button("Save model settings", type="primary"):
-            saved = api_post(
-                "/settings/models",
-                json={
-                    "embedding_model": embedding_model,
-                    "planning_model": planning_model,
-                    "writing_model": writing_model,
-                    "validation_model": validation_model,
-                    "editing_model": editing_model,
-                },
-            )
+    with st.form("model_settings_form"):
+        embedding_model = st.selectbox("Embedding model", options, index=idx(model_settings["embedding_model"]))
+        planning_model = st.selectbox("Planning model", options, index=idx(model_settings["planning_model"]))
+        writing_model = st.selectbox("Writing model", options, index=idx(model_settings["writing_model"]))
+        validation_model = st.selectbox("Validation model", options, index=idx(model_settings["validation_model"]))
+        editing_model = st.selectbox("Editing model", options, index=idx(model_settings["editing_model"]))
+        if st.form_submit_button("💾 Save model settings", type="primary"):
+            saved = api_post("/settings/models", json={
+                "embedding_model": embedding_model,
+                "planning_model": planning_model,
+                "writing_model": writing_model,
+                "validation_model": validation_model,
+                "editing_model": editing_model,
+            })
+            fetch_model_settings.clear()
             st.success("Model settings saved.")
             st.json(saved)
 
     st.markdown("#### Installed Ollama models")
     if discovered:
-        st.dataframe([{"Model": model} for model in discovered], use_container_width=True, hide_index=True)
+        st.dataframe([{"Model": m} for m in discovered], use_container_width=True, hide_index=True)
     else:
-        st.caption("No models reported. Pull models during setup, then operate offline.")
+        st.caption("No models found. Pull models via the form below.")
 
-    with st.form("pull_model"):
-        model_to_pull = st.text_input("Pull model during setup", placeholder="qwen3:14b")
+    with st.form("pull_model_form"):
+        model_to_pull = st.text_input("Pull model (requires internet)", placeholder="qwen3:14b")
         if st.form_submit_button("Pull model") and model_to_pull.strip():
-            with st.spinner(f"Pulling {model_to_pull.strip()} through local Ollama"):
+            with st.spinner(f"Pulling {model_to_pull.strip()}…"):
                 result = api_post("/ollama/pull", json={"model": model_to_pull.strip()})
             st.success(f"Pulled {result['model']}")
+            fetch_ollama_models.clear()
             st.rerun()
 
 
-def render_settings_page(project: dict | None) -> None:
-    st.subheader("Settings")
-    tab_docs, tab_templates, tab_models, tab_project = st.tabs(
-        ["Document upload and management", "Template manager", "Ollama models", "Project"]
-    )
-    with tab_docs:
-        render_documents_settings(project)
-    with tab_templates:
-        render_template_settings(project)
-    with tab_models:
-        render_ollama_settings()
-    with tab_project:
-        if project:
-            st.json(project)
-            st.markdown("#### Project events")
+def _render_general_settings() -> None:
+    api = st.session_state.api_url
+    st.subheader("General Configuration")
+    st.caption("All settings are saved to the backend and take effect immediately.")
+
+    cfg = fetch_general_settings(api)
+
+    with st.form("general_settings_form"):
+        st.markdown('<div class="settings-section-header">Ollama</div>', unsafe_allow_html=True)
+        ollama_base_url = st.text_input("Ollama Base URL", value=cfg.get("ollama_base_url", "http://localhost:11434"))
+
+        st.markdown('<div class="settings-section-header">Generation Models</div>', unsafe_allow_html=True)
+        col1, col2 = st.columns(2)
+        planning_model = col1.text_input("Planning model", value=cfg.get("ollama_planning_model", "qwen3:14b"))
+        writing_model = col2.text_input("Writing model", value=cfg.get("ollama_writing_model", "qwen3:14b"))
+        validation_model = col1.text_input("Validation model", value=cfg.get("ollama_validation_model", "gemma3:12b"))
+        editing_model = col2.text_input("Editing model", value=cfg.get("ollama_editing_model", "mistral-small"))
+        embedding_model = st.text_input("Embedding model", value=cfg.get("ollama_embedding_model", "nomic-embed-text"))
+
+        st.markdown('<div class="settings-section-header">Performance & Limits</div>', unsafe_allow_html=True)
+        col3, col4, col5 = st.columns(3)
+        max_upload = col3.number_input("Max upload (MB)", min_value=1, max_value=2000,
+                                       value=int(cfg.get("max_upload_mb", 200)))
+        gen_timeout = col4.number_input("Generation timeout (s)", min_value=60, max_value=7200,
+                                        value=int(cfg.get("generation_timeout_seconds", 1800)))
+        max_sections = col5.number_input("Max concurrent sections", min_value=1, max_value=10,
+                                         value=int(cfg.get("max_concurrent_sections", 3)))
+        worker_conc = col3.number_input("Celery worker concurrency", min_value=1, max_value=16,
+                                        value=int(cfg.get("worker_concurrency", 2)))
+
+        st.markdown('<div class="settings-section-header">Storage & Services</div>', unsafe_allow_html=True)
+        col6, col7 = st.columns(2)
+        app_storage_dir = col6.text_input("Storage directory", value=cfg.get("app_storage_dir", "storage"))
+        redis_url = col7.text_input("Redis URL", value=cfg.get("redis_url", "redis://localhost:6379/0"))
+        qdrant_url = col6.text_input("Qdrant URL", value=cfg.get("qdrant_url", "http://localhost:6333"))
+        postgres_host = col7.text_input("PostgreSQL host", value=cfg.get("postgres_host", "localhost"))
+        col8, col9 = st.columns(2)
+        postgres_port = col8.number_input("PostgreSQL port", min_value=1, max_value=65535,
+                                          value=int(cfg.get("postgres_port", 5432)))
+        postgres_db = col9.text_input("PostgreSQL database", value=cfg.get("postgres_db", "rag_platform"))
+        postgres_user = st.text_input("PostgreSQL user", value=cfg.get("postgres_user", "rag"))
+        use_ollama = st.checkbox("Use Ollama for inference", value=bool(cfg.get("use_ollama", True)))
+
+        if st.form_submit_button("💾 Save configuration", type="primary"):
+            payload = {
+                "ollama_base_url": ollama_base_url,
+                "ollama_planning_model": planning_model,
+                "ollama_writing_model": writing_model,
+                "ollama_validation_model": validation_model,
+                "ollama_editing_model": editing_model,
+                "ollama_embedding_model": embedding_model,
+                "use_ollama": use_ollama,
+                "max_upload_mb": max_upload,
+                "generation_timeout_seconds": gen_timeout,
+                "max_concurrent_sections": max_sections,
+                "worker_concurrency": worker_conc,
+                "app_storage_dir": app_storage_dir,
+                "redis_url": redis_url,
+                "qdrant_url": qdrant_url,
+                "postgres_host": postgres_host,
+                "postgres_port": postgres_port,
+                "postgres_db": postgres_db,
+                "postgres_user": postgres_user,
+            }
             try:
-                events = api_get(f"/projects/{project['id']}/events")
-                if events:
-                    st.dataframe(events[-50:], use_container_width=True, hide_index=True)
-                else:
-                    st.caption("No events recorded yet.")
-            except requests.RequestException:
-                st.caption("Events are not available.")
+                api_post("/settings/general", json=payload)
+                fetch_general_settings.clear()
+                fetch_model_settings.clear()
+                st.success("Configuration saved and applied.")
+            except Exception as exc:
+                st.error(f"Failed to save: {exc}")
+
+
+def _render_project_info(project: dict | None) -> None:
+    if not project:
+        st.info("No active project.")
+        return
+    st.subheader("Project data")
+    st.json(project)
+    st.markdown("#### Project events")
+    try:
+        events = api_get(f"/projects/{project['id']}/events")
+        if events:
+            st.dataframe(events[-50:], use_container_width=True, hide_index=True)
         else:
-            st.info("No active project.")
+            st.caption("No events recorded yet.")
+    except Exception:
+        st.caption("Events not available (backend unreachable?).")
 
 
-st.session_state.dark_mode = st.sidebar.toggle("Dark mode", value=st.session_state.dark_mode)
+# ─────────────────────────────── Main app ────────────────────────────────────
+
 inject_css(st.session_state.dark_mode)
 render_header()
 
 try:
-    health = api_get("/health")
+    health = api_get("/health", timeout=5)
     st.sidebar.success(f"Backend: {health['status']} · {health['llm']}")
-except requests.RequestException:
-    st.sidebar.error("Backend is not reachable")
+except Exception:
+    st.sidebar.error("Backend not reachable")
 
-projects = load_projects()
+api = st.session_state.api_url
+projects = load_projects(api)
 render_project_picker(projects)
-project = selected_project(projects)
 
-page = st.sidebar.radio("Page", ["Generate", "Settings"], label_visibility="collapsed")
+# Resolve active project (use cached fetch)
+project: dict | None = None
+if st.session_state.active_project_id:
+    project = fetch_project(api, st.session_state.active_project_id)
+    if not project and projects:
+        st.session_state.active_project_id = projects[0]["id"]
+        project = fetch_project(api, st.session_state.active_project_id)
+elif projects:
+    st.session_state.active_project_id = projects[0]["id"]
+    project = fetch_project(api, st.session_state.active_project_id)
 
-if page == "Generate":
-    render_generate_page(project)
-else:
-    render_settings_page(project)
+# ── Top-level tab navigation (replaces sidebar radio) ────────────────────────
+tab_gen, tab_settings = st.tabs(["🚀 Generate Document", "⚙ Settings"])
+
+with tab_gen:
+    render_generate_tab(project)
+
+with tab_settings:
+    render_settings_tab(project)
