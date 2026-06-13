@@ -1,6 +1,7 @@
 from pathlib import Path
 from uuid import uuid4
 
+from backend.agents.document_builder.agent import DocumentBuilderAgent
 from backend.agents.editor.agent import EditorAgent
 from backend.agents.ollama_client import OllamaClient
 from backend.agents.planner.agent import PlannerAgent
@@ -174,6 +175,7 @@ def build_workflow(project_id: str, model_overrides: dict | None = None) -> Docu
         WriterAgent(ollama, settings, model_config["writing_model"]),
         ValidatorAgent(ollama, settings, model_config["validation_model"]),
         EditorAgent(ollama, settings, model_config["editing_model"]),
+        DocumentBuilderAgent(ollama, settings),
         max_concurrent=settings.max_concurrent_sections,
     )
 

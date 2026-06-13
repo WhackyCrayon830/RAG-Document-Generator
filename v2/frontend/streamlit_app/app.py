@@ -36,10 +36,12 @@ def init_state() -> None:
         "last_result": None,
         "last_task_id": None,
         "workflow_steps": {
-            "1. Planner Agent": "Waiting",
-            "2. Parallel Section Generators": "Waiting",
-            "3. Agentic RAG Loop": "Waiting",
-            "4. DOCX Compiler": "Waiting",
+            "🧠 Planner Agent": "Waiting",
+            "🔍 Retriever Agent": "Waiting",
+            "✍️ Writer Agent": "Waiting",
+            "✏️ Editor Agent": "Waiting",
+            "🔎 Validator Agent": "Waiting",
+            "📄 Document Builder": "Waiting",
         },
     }
     for key, value in defaults.items():
@@ -222,10 +224,12 @@ def render_agent_card() -> None:
     )
     html = (
         '<div class="agent-card">'
-        '<div class="card-title">Agent workflow</div>'
+        '<div class="card-title">Agentic RAG Pipeline</div>'
         + rows
         + '<div class="small-muted" style="margin-top:.65rem;">'
-        "Writers receive only the current section context, adjacent summaries, template hints, and retrieved evidence."
+        "Each section runs through an autonomous Retrieve → Write → Edit → Validate loop "
+        "with up to 3 self-correction iterations. Sections generate in parallel. "
+        "The Document Builder Agent uses a VLM to analyse the template and writes a python-docx script to compile the final styled DOCX."
         "</div></div>"
     )
     st.markdown(html, unsafe_allow_html=True)
@@ -327,7 +331,7 @@ def render_generate_tab(project: dict | None) -> None:
         if generate_sync:
             required_sections = [l.strip() for l in section_text.splitlines() if l.strip()] or None
             progress = st.progress(0, text="Preparing workflow")
-            set_workflow(active="1. Planner Agent")
+            set_workflow(active="🧠 Planner Agent")
             time.sleep(0.1)
             with st.spinner("Running Agentic RAG pipeline in backend…"):
                 result = api_post(
@@ -380,12 +384,17 @@ def _poll_task_progress(task_id: str, project: dict) -> None:
     """Poll /tasks/{task_id}/status and update UI until done."""
     progress_bar = st.progress(0, text="Queued…")
     status_text = st.empty()
-    max_polls = 600  # ~10 min at 1 s intervals
-    step_map = {
-        range(0, 10): ("1. Planner Agent", []),
-        range(10, 90): ("3. Agentic RAG Loop", ["1. Planner Agent", "2. Parallel Section Generators"]),
-        range(90, 100): ("4. DOCX Compiler", ["1. Planner Agent", "2. Parallel Section Generators", "3. Agentic RAG Loop"]),
-    }
+    max_polls = 720  # ~12 min at 1-second intervals
+
+    # Message-keyword → (active step, completed steps)
+    _AGENT_KEYWORDS = [
+        ("Planner Agent",          "🧠 Planner Agent",     []),
+        ("Retriever Agent",        "🔍 Retriever Agent",   ["🧠 Planner Agent"]),
+        ("Writer Agent",           "✍️ Writer Agent",       ["🧠 Planner Agent", "🔍 Retriever Agent"]),
+        ("Editor Agent",           "✏️ Editor Agent",       ["🧠 Planner Agent", "🔍 Retriever Agent", "✍️ Writer Agent"]),
+        ("Validator Agent",        "🔎 Validator Agent",   ["🧠 Planner Agent", "🔍 Retriever Agent", "✍️ Writer Agent", "✏️ Editor Agent"]),
+        ("Document Builder Agent", "📄 Document Builder",  ["🧠 Planner Agent", "🔍 Retriever Agent", "✍️ Writer Agent", "✏️ Editor Agent", "🔎 Validator Agent"]),
+    ]
 
     for _ in range(max_polls):
         try:
@@ -401,22 +410,28 @@ def _poll_task_progress(task_id: str, project: dict) -> None:
         progress_bar.progress(min(pct, 100), text=msg)
         status_text.caption(f"Status: **{status_val}** · {pct}%")
 
-        # Update workflow step indicators
-        for rng, (active, done) in step_map.items():
-            if pct in rng:
+        # Update workflow card based on message keywords
+        matched = False
+        for keyword, active, done in _AGENT_KEYWORDS:
+            if keyword.lower() in msg.lower():
                 set_workflow(active=active, done=done)
+                matched = True
                 break
+        # Fallback: use progress % to guess step
+        if not matched:
+            if pct < 8:
+                set_workflow(active="🧠 Planner Agent", done=[])
+            elif pct < 90:
+                set_workflow(active="✍️ Writer Agent", done=["🧠 Planner Agent", "🔍 Retriever Agent"])
+            elif pct < 98:
+                set_workflow(active="📄 Document Builder", done=["🧠 Planner Agent", "🔍 Retriever Agent", "✍️ Writer Agent", "✏️ Editor Agent", "🔎 Validator Agent"])
 
         if status_val in ("success", "failure", "revoked"):
             if status_val == "success":
                 set_workflow(done=list(st.session_state.workflow_steps.keys()))
                 progress_bar.progress(100, text="Done!")
                 if s.get("result"):
-                    # Try fetching the full run result
                     try:
-                        run_id = s["result"].get("run_id", "")
-                        full = api_get(f"/projects/{project['id']}")
-                        # Store the task result summary
                         st.session_state.last_result = s["result"]
                     except Exception:
                         st.session_state.last_result = s.get("result", {})

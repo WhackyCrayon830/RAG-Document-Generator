@@ -12,5 +12,913 @@
       "version": 1
     }
   ],
-  "templates": []
+  "templates": [
+    {
+      "id": "5caec674-06d8-4077-853f-4f9855caacdf",
+      "filename": "231170_UserManual_template.docx",
+      "path": "test-storage\\projects\\707bcd29-bc6b-4e65-ab5a-8db92cf03688\\templates\\5caec674-06d8-4077-853f-4f9855caacdf.docx",
+      "profile": {
+        "styles": [
+          {
+            "name": "Normal",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Heading 1",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Heading 2",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Heading 3",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Heading 4",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Heading 5",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Heading 6",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": true
+          },
+          {
+            "name": "Heading 7",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": true
+          },
+          {
+            "name": "Heading 8",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": true
+          },
+          {
+            "name": "Heading 9",
+            "font": "Arial Narrow",
+            "bold": null,
+            "italic": true
+          },
+          {
+            "name": "Default Paragraph Font",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Normal Table",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "No List",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Back Matter Heading",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Figure",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Footer",
+            "font": "Arial Narrow",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "footnote reference",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "footnote text",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Front Matter Header",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Header",
+            "font": "Arial Narrow",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "page number",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "toc 1",
+            "font": "Arial",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "toc 2",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "toc 3",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "toc 4",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "toc 5",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "toc 6",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "toc 7",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "toc 8",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "toc 9",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Balloon Text",
+            "font": "Tahoma",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Caption",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "table of figures",
+            "font": null,
+            "bold": false,
+            "italic": null
+          },
+          {
+            "name": "toa heading",
+            "font": null,
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Heading 2 Char",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Heading 1 Char",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Heading 3 Char",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Heading 4 Char",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Heading 5 Char",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Heading 6 Char",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": true
+          },
+          {
+            "name": "Heading 7 Char",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": true
+          },
+          {
+            "name": "Heading 8 Char",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": true
+          },
+          {
+            "name": "Heading 9 Char",
+            "font": "Arial Narrow",
+            "bold": null,
+            "italic": true
+          },
+          {
+            "name": "TOC Heading",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Table Grid",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Hyperlink",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Revision",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Placeholder Text",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Appendices",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Appendix",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Appendix A",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Appendix B",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Appendix C",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Appendix D",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Appendix E",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Appendix F",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Appendix G",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Appendix H",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Appendix I",
+            "font": "Arial Narrow",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Back Matter",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Balloon Text Char",
+            "font": "Tahoma",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "BMH",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text 10",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text 10 Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text 10 Bold",
+            "font": null,
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Body Text 10 Bold Char Char",
+            "font": "Arial",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Body Text 10 Bold Center",
+            "font": null,
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Body Text 10 Bold Center Char",
+            "font": "Arial",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Body Text 10 Bullet",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text 10 Bullet Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text 10 Caps",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text 10 Caps Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text 10 Center",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text 10 Center Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text 10 Glossary",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text 10 Glossary Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text 10 Italic",
+            "font": null,
+            "bold": null,
+            "italic": true
+          },
+          {
+            "name": "Body Text 10 Italic Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": true
+          },
+          {
+            "name": "Footer Char",
+            "font": "Arial Narrow",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text 10 Italic Borders",
+            "font": "Arial",
+            "bold": null,
+            "italic": true
+          },
+          {
+            "name": "Body Text 10 Number",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text 10 Number Char Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text 10 Underline",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text 10 Underline Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Bold",
+            "font": null,
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Body Text Bold Char",
+            "font": "Arial",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Body Text Bold Underline",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Bold Underline Char",
+            "font": "Arial",
+            "bold": true,
+            "italic": null
+          },
+          {
+            "name": "Body Text Bullet",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Bullet Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Bullet Level 2",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Bullet Level 2 Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "BODY TEXT CAPS",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "BODY TEXT CAPS Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Center",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Center Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Center No Space",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Center No Space Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Glossary",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Glossary Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Indent",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Indent Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Italic",
+            "font": null,
+            "bold": null,
+            "italic": true
+          },
+          {
+            "name": "Body Text Italic Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": true
+          },
+          {
+            "name": "Body Text No Space",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text No Space Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Number",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Number Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Number Letter Level 2",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Number Letter Level 2 Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Number Step Results/Notes",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Number Step Results/Notes Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Number Letter Level 2 Step Results/Notes",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Number Letter Level 2 Step Results/Notes Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Number Step Results/Notes Bullet",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Number Step Results/Notes Bullet Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Right",
+            "font": null,
+            "bold": null,
+            "italic": null
+          },
+          {
+            "name": "Body Text Right Char",
+            "font": "Arial",
+            "bold": null,
+            "italic": null
+          }
+        ],
+        "placeholders": [],
+        "sections": [
+          {
+            "page_width": 12240,
+            "page_height": 15840,
+            "top_margin": 1440,
+            "bottom_margin": 1440,
+            "left_margin": 1440,
+            "right_margin": 1440,
+            "header": "CMS TLC\tList of Tables",
+            "footer": "UM Version X.X\tiii\t<Project and release name>"
+          },
+          {
+            "page_width": 12240,
+            "page_height": 15840,
+            "top_margin": 1440,
+            "bottom_margin": 1440,
+            "left_margin": 1440,
+            "right_margin": 1440,
+            "header": "CMS TLC\tTroubleshooting & Support",
+            "footer": "UM Version X.X\t4\t<Project and release name>"
+          },
+          {
+            "page_width": 12240,
+            "page_height": 15840,
+            "top_margin": 1440,
+            "bottom_margin": 1440,
+            "left_margin": 1440,
+            "right_margin": 1440,
+            "header": "CMS TLC\tAppendix E: Notes to the Author/Template Instructions",
+            "footer": "UM Version X.X\t9\t<Project and release name>"
+          }
+        ],
+        "heading_levels": [
+          {
+            "style": "Heading 1",
+            "level": "1"
+          },
+          {
+            "style": "Heading 2",
+            "level": "2"
+          },
+          {
+            "style": "Heading 3",
+            "level": "3"
+          },
+          {
+            "style": "Heading 4",
+            "level": "4"
+          },
+          {
+            "style": "Heading 5",
+            "level": "5"
+          },
+          {
+            "style": "Heading 6",
+            "level": "6"
+          },
+          {
+            "style": "Heading 7",
+            "level": "7"
+          },
+          {
+            "style": "Heading 8",
+            "level": "8"
+          },
+          {
+            "style": "Heading 9",
+            "level": "9"
+          },
+          {
+            "style": "Heading 2 Char",
+            "level": "2 Char"
+          },
+          {
+            "style": "Heading 1 Char",
+            "level": "1 Char"
+          },
+          {
+            "style": "Heading 3 Char",
+            "level": "3 Char"
+          },
+          {
+            "style": "Heading 4 Char",
+            "level": "4 Char"
+          },
+          {
+            "style": "Heading 5 Char",
+            "level": "5 Char"
+          },
+          {
+            "style": "Heading 6 Char",
+            "level": "6 Char"
+          },
+          {
+            "style": "Heading 7 Char",
+            "level": "7 Char"
+          },
+          {
+            "style": "Heading 8 Char",
+            "level": "8 Char"
+          },
+          {
+            "style": "Heading 9 Char",
+            "level": "9 Char"
+          }
+        ],
+        "numbering_styles": [
+          "No List",
+          "page number",
+          "Body Text 10 Number",
+          "Body Text 10 Number Char Char",
+          "Body Text Number",
+          "Body Text Number Char",
+          "Body Text Number Letter Level 2",
+          "Body Text Number Letter Level 2 Char",
+          "Body Text Number Step Results/Notes",
+          "Body Text Number Step Results/Notes Char",
+          "Body Text Number Letter Level 2 Step Results/Notes",
+          "Body Text Number Letter Level 2 Step Results/Notes Char",
+          "Body Text Number Step Results/Notes Bullet",
+          "Body Text Number Step Results/Notes Bullet Char",
+          "Instructional Text Number",
+          "Instructional Text Number Letter Level 2",
+          "Table Text 10 Number",
+          "Table Text 10 Number Char",
+          "Table Text 10 Number Letter",
+          "Table Text 10 Number Step Results/Notes",
+          "Table Text 10 Number Step Results/Notes Char",
+          "Table Text 8 Number",
+          "Table Text 8 Number Char"
+        ],
+        "table_styles": [
+          "Normal Table",
+          "table of figures",
+          "Table Grid",
+          "Instructional Text Table Text 10",
+          "Instructional Text Table Text 10 Char",
+          "Table Text 10",
+          "Table Text 10 Char",
+          "Table Text 10 Bold",
+          "Table Text 10 Bold Char",
+          "Table Text 10 Bullet",
+          "Table Text 10 Bullet Char",
+          "Table Text 10 Center",
+          "Table Text 10 Center Char",
+          "Table Text 10 Glossary",
+          "Table Text 10 Glossary Char",
+          "Table Text 10 Header Center",
+          "Table Text 10 Header Center Char",
+          "Table Text 10 Header Left",
+          "Table Text 10 Header Left Char",
+          "Table Text 10 Indent",
+          "Table Text 10 Indent Char",
+          "Table Text 10 Italic",
+          "Table Text 10 Italic Char",
+          "Table Text 10 No Space",
+          "Table Text 10 No Space Char",
+          "Table Text 10 Number",
+          "Table Text 10 Number Char",
+          "Table Text 10 Number Letter",
+          "Table Text 10 Number Step Results/Notes",
+          "Table Text 10 Number Step Results/Notes Char",
+          "Table Text 10 Right",
+          "Table Text 10 Right Char",
+          "Table Text 8",
+          "Table Text 8 Char",
+          "Table Text 8 Bold",
+          "Table Text 8 Bold Char",
+          "Table Text 8 Bullet",
+          "Table Text 8 Bullet Char",
+          "Table Text 8 Glossary",
+          "Table Text 8 Glossary Char",
+          "Table Text 8 Italic",
+          "Table Text 8 Italic Char",
+          "Table Text 8 Number",
+          "Table Text 8 Number Char"
+        ]
+      }
+    }
+  ]
 }

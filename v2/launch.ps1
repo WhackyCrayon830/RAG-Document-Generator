@@ -8,6 +8,7 @@ param(
     [switch]$NoBrowser,
     [switch]$Test,
     [switch]$NoCelery,
+    [switch]$NoRedis,
     [string]$EnvName = ""
 )
 
@@ -30,6 +31,7 @@ if ($Help) {
     Write-Host "  -SkipModelPull    Skip automatic Ollama model pull/check"
     Write-Host "  -NoBrowser        Do not open the browser after launch"
     Write-Host "  -NoCelery         Do not start the Celery background worker"
+    Write-Host "  -NoRedis          Run without Redis (tasks run eagerly, no async progress bar)"
     Write-Host "  -Test             Run the pytest test suite and exit"
     Write-Host "  -EnvName <name>   Override the conda environment name"
     Write-Host "  -Help             Show this help message"
@@ -118,12 +120,15 @@ port = 8501
 }
 
 # ─── Celery worker ───────────────────────────────────────────────────────────
-if (-not $NoCelery) {
+if (-not $NoCelery -and -not $NoRedis) {
     Write-Host "Starting background task worker..." -ForegroundColor Cyan
     $condaCmd = Get-CondaCommandQuick
     $runEnvName = if ($EnvName) { $EnvName } else { "rag_document_generator" }
     Start-Process -PassThru -WindowStyle Hidden -FilePath "powershell.exe" `
-        -ArgumentList "-ExecutionPolicy Bypass -WindowStyle Hidden -Command `"cd '$PSScriptRoot'; & '$condaCmd' run -n '$runEnvName' celery -A workers.celery_app worker --loglevel=warning --concurrency=2`"" | Out-Null
+        -ArgumentList "-ExecutionPolicy Bypass -WindowStyle Hidden -Command `"cd '$PSScriptRoot'; `$env:PYTHONUNBUFFERED='1'; & '$condaCmd' run -n '$runEnvName' celery -A workers.celery_app worker --loglevel=info --concurrency=4`"" | Out-Null
+    Write-Host "  Celery worker started (4 concurrent slots)." -ForegroundColor Green
+} elseif ($NoRedis) {
+    Write-Host "  NoRedis mode: Celery tasks will run synchronously in the FastAPI process." -ForegroundColor Yellow
 }
 
 # ─── Delegate to scripts/launch.ps1 ─────────────────────────────────────────
@@ -134,4 +139,5 @@ $launcherPath = Join-Path $PSScriptRoot "scripts\launch.ps1"
     -ShowConfig:$ShowConfig `
     -SkipModelPull:$SkipModelPull `
     -NoBrowser:$NoBrowser `
+    -NoRedis:$NoRedis `
     -EnvName $EnvName

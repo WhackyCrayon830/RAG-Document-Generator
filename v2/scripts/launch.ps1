@@ -4,6 +4,7 @@ param(
     [switch]$ShowConfig,
     [switch]$SkipModelPull,
     [switch]$NoBrowser,
+    [switch]$NoRedis,
     [string]$EnvName = ""
 )
 
@@ -389,6 +390,52 @@ function Get-CondaCommand {
     return $null
 }
 
+function Ensure-Redis {
+    param([string]$RedisDir)
+    Step "Checking Redis"
+    if (Test-Port 6379) {
+        Ok "Redis is already running on port 6379"
+        return $true
+    }
+    $redisExe = Join-Path $RedisDir "redis-server.exe"
+    if (-not (Test-Path $redisExe)) {
+        Warn "Redis not found. Downloading portable Redis for Windows..."
+        $zip = Join-Path $RedisDir "redis.zip"
+        New-Item -ItemType Directory -Force -Path $RedisDir | Out-Null
+        try {
+            $url = "https://github.com/tporadowski/redis/releases/download/v5.0.14.1/Redis-x64-5.0.14.1.zip"
+            Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+            Expand-Archive -Path $zip -DestinationPath $RedisDir -Force
+            Remove-Item $zip -Force
+            # Move files out of any subdirectory
+            $sub = Get-ChildItem $RedisDir -Directory | Select-Object -First 1
+            if ($sub) {
+                Get-ChildItem $sub.FullName | Move-Item -Destination $RedisDir -Force
+                Remove-Item $sub.FullName -Recurse -Force
+            }
+            Ok "Redis downloaded to $RedisDir"
+        } catch {
+            Warn "Could not download Redis: $($_.Exception.Message)"
+            Warn "Install Redis manually or run .\launch.ps1 -NoRedis"
+            return $false
+        }
+    }
+    if (-not (Test-Path $redisExe)) {
+        Warn "redis-server.exe not found after download. Run .\launch.ps1 -NoRedis to skip Redis."
+        return $false
+    }
+    Step "Starting Redis server..."
+    Start-Process -FilePath $redisExe -ArgumentList "--port", "6379" -WindowStyle Hidden | Out-Null
+    Start-Sleep -Seconds 2
+    if (Test-Port 6379) {
+        Ok "Redis server started on port 6379"
+        return $true
+    } else {
+        Warn "Redis failed to start. Run .\launch.ps1 -NoRedis to skip."
+        return $false
+    }
+}
+
 function Test-CondaEnv {
     param([string]$Conda, [string]$Name)
     $envs = & $Conda env list 2>$null
@@ -604,6 +651,14 @@ try {
     Ensure-CondaEnv -Conda $conda -Name $configData.conda_env_name
     Ensure-Ollama $configData | Out-Null
 
+    # Redis: auto-install or skip based on -NoRedis flag
+    $redisDir = Join-Path $Root "storage\redis"
+    if ($NoRedis) {
+        Warn "NoRedis mode active – tasks will run synchronously without async progress."
+    } else {
+        Ensure-Redis -RedisDir $redisDir | Out-Null
+    }
+
     Write-Rule "Services"
     $backendEnv = ConvertTo-Hashtable $configData.env
     $backendEnv.BACKEND_URL = "http://localhost:$($configData.backend_port)"
@@ -619,6 +674,8 @@ try {
     $backendEnv.MAX_UPLOAD_MB = "$($configData.max_upload_mb)"
     $backendEnv.GENERATION_TIMEOUT_SECONDS = "$($configData.generation_timeout_seconds)"
     $backendEnv.WORKER_CONCURRENCY = "$($configData.worker_concurrency)"
+    $backendEnv.USE_REDIS = if ($NoRedis) { "false" } else { "true" }
+    $backendEnv.PYTHONUNBUFFERED = "1"
 
     $backendProc = Start-ServiceIfNeeded `
         -Name "FastAPI backend" `

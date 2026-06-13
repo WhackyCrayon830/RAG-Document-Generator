@@ -33,7 +33,9 @@ class Settings(BaseSettings):
     ollama_validation_model: str = "gemma3:12b"
     ollama_editing_model: str = "mistral-small"
     ollama_embedding_model: str = "nomic-embed-text"
+    ollama_vision_model: str = "llava"
     use_ollama: bool = True
+    use_redis: bool = True
     postgres_host: str = "localhost"
     postgres_port: int = 5432
     postgres_db: str = "rag_platform"
@@ -43,8 +45,8 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     max_upload_mb: int = 200
     generation_timeout_seconds: int = 1800
-    worker_concurrency: int = 2
-    max_concurrent_sections: int = 3
+    worker_concurrency: int = 4
+    max_concurrent_sections: int = 6
 
     model_config = SettingsConfigDict(env_file=str(_CONFIG_DIR / ".env"), env_file_encoding="utf-8")
 
@@ -131,7 +133,9 @@ def get_all_settings_dict() -> dict:
         "ollama_validation_model": s.ollama_validation_model,
         "ollama_editing_model": s.ollama_editing_model,
         "ollama_embedding_model": s.ollama_embedding_model,
+        "ollama_vision_model": s.ollama_vision_model,
         "use_ollama": s.use_ollama,
+        "use_redis": s.use_redis,
         "max_upload_mb": s.max_upload_mb,
         "generation_timeout_seconds": s.generation_timeout_seconds,
         "worker_concurrency": s.worker_concurrency,

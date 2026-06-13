@@ -2,30 +2,31 @@
 Document generation workflow with parallel section execution and Agentic RAG loops.
 
 Pipeline flow:
-  1. Planner generates a section plan.
-  2. Section 1 (root) runs first (serial) to establish context.
+  1. Planner Agent   – generates a section plan.
+  2. Section 1 (root) runs serially to establish context.
   3. All remaining sections run concurrently (up to max_concurrent_sections).
   4. Each section uses an Agentic RAG loop:
-       Retrieve → Write → Edit → Validate  (up to 3 iterations)
-  5. WebSocket streaming events are emitted at each stage.
-  6. Celery task progress is updated in Redis throughout.
+       Retriever → Writer → Editor → Validator  (up to 3 iterations)
+  5. Document Builder Agent – inspects template via VLM, writes + executes a
+     python-docx script to compile the final styled DOCX.
+  6. Redis task-tracker progress and WebSocket streaming events are emitted at each step.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
 from uuid import uuid4
 
+from backend.agents.document_builder.agent import DocumentBuilderAgent
 from backend.agents.editor.agent import EditorAgent
 from backend.agents.planner.agent import PlannerAgent
 from backend.agents.retriever.agent import RetrieverAgent
 from backend.agents.validator.agent import ValidatorAgent
 from backend.agents.writer.agent import WriterAgent
-from backend.exporters.docx.compiler import compile_docx
+from backend.api.task_tracker import TaskTracker
 from backend.storage.filesystem.event_log import append_event
 from backend.storage.filesystem.json_store import write_json
 from backend.storage.filesystem.project_layout import ensure_project_layout
@@ -33,7 +34,8 @@ from backend.storage.filesystem.project_layout import ensure_project_layout
 logger = logging.getLogger(__name__)
 
 _AGENTIC_MAX_ITERATIONS = 3
-_PROGRESS_WEIGHT_PLAN = 10  # % of total progress for planning phase
+_PROGRESS_WEIGHT_PLAN = 8   # % reserved for planning phase
+_PROGRESS_WEIGHT_BUILD = 6  # % reserved for DOCX build phase
 
 
 class DocumentGenerationWorkflow:
@@ -44,13 +46,15 @@ class DocumentGenerationWorkflow:
         writer: WriterAgent,
         validator: ValidatorAgent,
         editor: EditorAgent,
-        max_concurrent: int = 3,
+        document_builder: DocumentBuilderAgent,
+        max_concurrent: int = 6,
     ):
         self.planner = planner
         self.retriever = retriever
         self.writer = writer
         self.validator = validator
         self.editor = editor
+        self.document_builder = document_builder
         self.max_concurrent = max_concurrent
 
     # ─────────────────────────── Public entry point ──────────────────────────
@@ -64,7 +68,7 @@ class DocumentGenerationWorkflow:
         template_path: Path | None = None,
         task_id: str | None = None,
     ) -> dict:
-        """Synchronous wrapper – runs the async pipeline in a dedicated loop."""
+        """Synchronous wrapper – runs the async pipeline in a dedicated event loop."""
         try:
             loop = asyncio.get_event_loop()
             if loop.is_closed():
@@ -78,7 +82,7 @@ class DocumentGenerationWorkflow:
                 self._run_async(project_dir, title, prompt, required_sections, template_path, task_id)
             )
         finally:
-            pass  # keep the loop alive for the process lifetime
+            pass  # keep loop alive for process lifetime
 
     # ─────────────────────────── Async pipeline ──────────────────────────────
 
@@ -96,7 +100,8 @@ class DocumentGenerationWorkflow:
         event_log = layout["logs"] / "events.json"
 
         append_event(event_log, "generation.started", f"Started generation '{title}'", {"run_id": run_id})
-        await self._emit(task_id, "generation.started", 0, f"Planning '{title}'…", None)
+        await self._emit(task_id, "generation.started", 0, "🧠 Planner Agent: building section plan…")
+        await self._update_task(task_id, 0, "Planner Agent: building section plan…")
 
         # ── 1. Plan ──────────────────────────────────────────────────────────
         sections_plan: list[dict] = await asyncio.get_event_loop().run_in_executor(
@@ -105,19 +110,20 @@ class DocumentGenerationWorkflow:
         total = len(sections_plan)
         logger.info("Plan ready: %d sections", total)
         await self._emit(task_id, "generation.section.planning", _PROGRESS_WEIGHT_PLAN,
-                         f"Plan ready – {total} sections", None)
-        await self._update_task(task_id, _PROGRESS_WEIGHT_PLAN, f"Planning complete – {total} sections")
+                         f"🧠 Planner Agent: plan ready – {total} sections")
+        await self._update_task(task_id, _PROGRESS_WEIGHT_PLAN, f"Planner Agent: plan ready – {total} sections")
 
         # ── 2. Generate sections ─────────────────────────────────────────────
         generated_sections: list[dict] = []
+        section_progress_pool = 100 - _PROGRESS_WEIGHT_PLAN - _PROGRESS_WEIGHT_BUILD  # ~86%
 
         if not sections_plan:
             logger.warning("Empty section plan – returning minimal document.")
         elif total == 1:
-            # Single section – run straight
             sec = await self._generate_section_agentic(
                 sections_plan[0], prompt, project_dir, run_id,
                 adjacent_summary="", idx=0, total=1, task_id=task_id,
+                progress_pool=section_progress_pool,
             )
             generated_sections.append(sec)
         else:
@@ -126,9 +132,10 @@ class DocumentGenerationWorkflow:
             root_sec = await self._generate_section_agentic(
                 root, prompt, project_dir, run_id,
                 adjacent_summary="", idx=0, total=total, task_id=task_id,
+                progress_pool=section_progress_pool,
             )
             generated_sections.append(root_sec)
-            adjacent_root = f"{root['title']}: {root_sec['content'][:500]}"
+            adjacent_root = f"{root['title']}: {root_sec['content'][:400]}"
 
             # All remaining sections run in parallel batches
             remaining = sections_plan[1:]
@@ -140,6 +147,7 @@ class DocumentGenerationWorkflow:
                         section, prompt, project_dir, run_id,
                         adjacent_summary=adjacent_root,
                         idx=idx + 1, total=total, task_id=task_id,
+                        progress_pool=section_progress_pool,
                     )
 
             tasks = [bounded(s, i) for i, s in enumerate(remaining)]
@@ -148,7 +156,6 @@ class DocumentGenerationWorkflow:
             for i, res in enumerate(results):
                 if isinstance(res, Exception):
                     logger.error("Section generation failed: %s", res)
-                    # Insert a placeholder so the document isn't missing sections
                     generated_sections.append({
                         **remaining[i],
                         "content": f"[Section generation failed: {res}]",
@@ -160,14 +167,30 @@ class DocumentGenerationWorkflow:
 
         # Re-order to match the original plan order
         plan_ids = [s["id"] for s in sections_plan]
-        generated_sections.sort(key=lambda s: plan_ids.index(s["id"]) if s["id"] in plan_ids else 999)
+        generated_sections.sort(
+            key=lambda s: plan_ids.index(s["id"]) if s["id"] in plan_ids else 999
+        )
 
-        # ── 3. Export ────────────────────────────────────────────────────────
-        await self._emit(task_id, "generation.editing", 90, "Compiling DOCX…", None)
-        await self._update_task(task_id, 90, "Compiling DOCX…")
+        # ── 3. Document Builder (VLM + python-docx) ──────────────────────────
+        build_start_pct = _PROGRESS_WEIGHT_PLAN + section_progress_pool  # ~94%
+        await self._emit(task_id, "generation.editing", build_start_pct,
+                         "📄 Document Builder Agent: generating styled DOCX script…")
+        await self._update_task(task_id, build_start_pct,
+                                "Document Builder Agent: generating styled DOCX script…")
 
         docx_path = layout["generated"] / f"{run_id}.docx"
-        compile_docx(title, generated_sections, docx_path, template_path=template_path)
+        loop = asyncio.get_event_loop()
+        try:
+            await loop.run_in_executor(
+                None,
+                self.document_builder.build,
+                title, generated_sections, docx_path, template_path,
+            )
+        except Exception as exc:
+            logger.error("DocumentBuilderAgent failed: %s", exc)
+            # Last-resort plain compile
+            from backend.exporters.docx.compiler import compile_docx
+            compile_docx(title, generated_sections, docx_path, template_path=template_path)
 
         result = {
             "run_id": run_id,
@@ -179,7 +202,7 @@ class DocumentGenerationWorkflow:
         append_event(event_log, "generation.completed", f"Completed '{title}'",
                      {"run_id": run_id, "docx_path": str(docx_path)})
 
-        await self._emit(task_id, "generation.completed", 100, "Document ready", None)
+        await self._emit(task_id, "generation.completed", 100, "✅ Document ready")
         await self._update_task(task_id, 100, "Done")
         return result
 
@@ -195,50 +218,52 @@ class DocumentGenerationWorkflow:
         idx: int,
         total: int,
         task_id: str | None,
+        progress_pool: int,
     ) -> dict:
-        """Retrieve → Write → Edit → Validate loop (up to _AGENTIC_MAX_ITERATIONS)."""
+        """Retriever → Writer → Editor → Validator loop (up to _AGENTIC_MAX_ITERATIONS)."""
         title = section["title"]
-        section_progress = _PROGRESS_WEIGHT_PLAN + int((idx / total) * (90 - _PROGRESS_WEIGHT_PLAN))
+        # Base section progress (progress advances uniformly across sections)
+        section_pct = _PROGRESS_WEIGHT_PLAN + int((idx / max(total, 1)) * progress_pool)
 
-        await self._emit(task_id, "generation.section.writing", section_progress,
-                         f"Writing '{title}' ({idx + 1}/{total})", title)
+        loop = asyncio.get_event_loop()
+
+        # ── Retriever ──────────────────────────────────────────────────────
+        await self._emit(task_id, "generation.section.writing", section_pct,
+                         f"🔍 Retriever Agent: fetching context for '{title}' ({idx+1}/{total})")
+        await self._update_task(task_id, section_pct,
+                                f"Retriever Agent: fetching context for '{title}' ({idx+1}/{total})")
         logger.info("Generating section [%d/%d]: %s", idx + 1, total, title)
 
-        # Retrieval (once per section)
         query = f"{prompt}\n{title}\n{' '.join(section.get('required_context', []))}"
-        loop = asyncio.get_event_loop()
         retrieved = await loop.run_in_executor(None, self.retriever.retrieve, query, 6)
 
         retrieval_record = {
             "section_id": section["id"],
             "query": query,
             "results": [
-                {
-                    "chunk_id": r.chunk_id,
-                    "document_id": r.document_id,
-                    "score": r.score,
-                    "metadata": r.metadata,
-                }
+                {"chunk_id": r.chunk_id, "document_id": r.document_id, "score": r.score, "metadata": r.metadata}
                 for r in retrieved
             ],
         }
         write_json(project_dir / "runs" / run_id / f"retrieval_{section['id']}.json", retrieval_record)
 
-        # Agentic rewrite loop
+        # ── Writer → Editor → Validator loop ─────────────────────────────
         critic_feedback: str = ""
         content: str = ""
         validation: dict = {}
 
         for iteration in range(1, _AGENTIC_MAX_ITERATIONS + 1):
-            # Writer – feed critic feedback from previous iteration
+            # ── Writer ──────────────────────────────────────────────────
             augmented_adjacent = adjacent_summary
             if critic_feedback:
                 augmented_adjacent = (
-                    f"{adjacent_summary}\n\n[Critic feedback from iteration {iteration - 1}]: {critic_feedback}"
+                    f"{adjacent_summary}\n\n[Critic feedback (iter {iteration-1})]: {critic_feedback}"
                 )
 
-            await self._emit(task_id, "generation.section.writing", section_progress,
-                             f"Writing '{title}' – iteration {iteration}", title)
+            await self._emit(task_id, "generation.section.writing", section_pct,
+                             f"✍️ Writer Agent: drafting '{title}' (iter {iteration}/{_AGENTIC_MAX_ITERATIONS})")
+            await self._update_task(task_id, section_pct,
+                                    f"Writer Agent: drafting '{title}' (iter {iteration}/{_AGENTIC_MAX_ITERATIONS})")
 
             content = await loop.run_in_executor(
                 None,
@@ -246,19 +271,26 @@ class DocumentGenerationWorkflow:
                 title, prompt, retrieved, augmented_adjacent,
             )
 
-            # Editor
+            # ── Editor ──────────────────────────────────────────────────
+            await self._emit(task_id, "generation.section.writing", section_pct,
+                             f"✏️ Editor Agent: polishing '{title}' (iter {iteration}/{_AGENTIC_MAX_ITERATIONS})")
+            await self._update_task(task_id, section_pct,
+                                    f"Editor Agent: polishing '{title}' (iter {iteration}/{_AGENTIC_MAX_ITERATIONS})")
+
             content = await loop.run_in_executor(None, self.editor.edit, title, content)
 
-            # Validator
-            await self._emit(task_id, "generation.section.validating", section_progress,
-                             f"Validating '{title}' – iteration {iteration}", title)
+            # ── Validator ────────────────────────────────────────────────
+            await self._emit(task_id, "generation.section.validating", section_pct,
+                             f"🔎 Validator Agent: checking '{title}' (iter {iteration}/{_AGENTIC_MAX_ITERATIONS})")
+            await self._update_task(task_id, section_pct,
+                                    f"Validator Agent: checking '{title}' (iter {iteration}/{_AGENTIC_MAX_ITERATIONS})")
+
             validation = await loop.run_in_executor(None, self.validator.validate, title, content)
 
             if validation.get("valid", True):
                 logger.info("Section '%s' passed validation on iteration %d", title, iteration)
                 break
 
-            # Extract critic feedback for next iteration
             critic_feedback = validation.get("summary", "")
             logger.info("Section '%s' failed validation (iter %d): %s", title, iteration, critic_feedback)
 
@@ -272,25 +304,19 @@ class DocumentGenerationWorkflow:
             for r in retrieved
         ]
 
-        sec_result = {
-            **section,
-            "content": content,
-            "validation": validation,
-            "sources": sources,
-        }
+        sec_result = {**section, "content": content, "validation": validation, "sources": sources}
 
-        write_json(project_dir / "runs" / run_id / "section_outputs.json",
-                   {"section_id": section["id"], "result": sec_result})
-
+        write_json(
+            project_dir / "runs" / run_id / "section_outputs.json",
+            {"section_id": section["id"], "result": sec_result},
+        )
         append_event(
             project_dir / "logs" / "events.json",
             "generation.section_completed",
             f"Completed section '{title}'",
             {"run_id": run_id, "section_id": section["id"], "validation": validation},
         )
-
-        await self._emit(task_id, "generation.section.completed",
-                         section_progress, f"Done: '{title}'", title)
+        await self._emit(task_id, "generation.section.completed", section_pct, f"✅ Done: '{title}'")
         return sec_result
 
     # ─────────────────────────── Helpers ─────────────────────────────────────
@@ -301,7 +327,6 @@ class DocumentGenerationWorkflow:
         event_type: str,
         progress: int,
         message: str,
-        section_title: str | None,
     ) -> None:
         """Fire a streaming WebSocket event (best-effort – never throws)."""
         if not task_id:
@@ -319,32 +344,27 @@ class DocumentGenerationWorkflow:
                 "generation.editing": GenerationEventType.EDITING,
                 "generation.completed": GenerationEventType.COMPLETED,
             }
-            evt_type = evt_map.get(event_type, GenerationEventType.PROGRESS)
-            event = GenerationEvent(
-                type=evt_type,
+
+            evt = GenerationEvent(
+                event_type=evt_map.get(event_type, GenerationEventType.STARTED),
                 task_id=task_id,
-                timestamp=datetime.utcnow(),
                 progress=progress,
                 message=message,
-                section_title=section_title,
+                section_title=None,
+                timestamp=datetime.utcnow(),
             )
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                await get_stream_manager().emit_event(event)
-        except Exception as exc:
-            logger.debug("Streaming emit failed (non-fatal): %s", exc)
+            manager = get_stream_manager()
+            await manager.emit(task_id, evt)
+        except Exception:
+            pass  # streaming is best-effort
 
     @staticmethod
     async def _update_task(task_id: str | None, progress: int, message: str) -> None:
-        """Update Celery task progress in Redis (best-effort)."""
+        """Best-effort update of Redis / in-memory task tracker."""
         if not task_id:
             return
         try:
-            from backend.api.task_tracker import TaskTracker
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(
-                None,
-                lambda: TaskTracker().update_progress(task_id, progress, message),
-            )
-        except Exception as exc:
-            logger.debug("Task tracker update failed (non-fatal): %s", exc)
+            tracker = TaskTracker()
+            tracker.update_progress(task_id, progress, message)
+        except Exception:
+            pass
